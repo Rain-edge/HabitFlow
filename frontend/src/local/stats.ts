@@ -563,18 +563,18 @@ export async function calendar(year: number, month: number, today = todayISO()):
 // ---------- achievements ----------
 
 const ACHIEVEMENT_CATALOG: { code: string; name: string; description: string; icon: string; category: string; threshold: number }[] = [
-  { code: "streak_3", name: "初次坚持", description: "连续坚持 3 天", icon: "🌱", category: "streak", threshold: 3 },
-  { code: "streak_7", name: "一周达人", description: "连续坚持 7 天", icon: "🔥", category: "streak", threshold: 7 },
-  { code: "streak_14", name: "两周不断", description: "连续坚持 14 天", icon: "⚡", category: "streak", threshold: 14 },
-  { code: "streak_30", name: "月度坚持", description: "连续坚持 30 天", icon: "🏅", category: "streak", threshold: 30 },
-  { code: "streak_50", name: "五十日之约", description: "连续坚持 50 天", icon: "🎖️", category: "streak", threshold: 50 },
-  { code: "streak_100", name: "百日坚持", description: "连续坚持 100 天", icon: "🏆", category: "streak", threshold: 100 },
-  { code: "total_10", name: "小有所成", description: "单个习惯累计完成 10 次", icon: "✨", category: "total", threshold: 10 },
-  { code: "total_50", name: "积少成多", description: "单个习惯累计完成 50 次", icon: "💪", category: "total", threshold: 50 },
-  { code: "total_100", name: "百次里程碑", description: "单个习惯累计完成 100 次", icon: "🌟", category: "total", threshold: 100 },
-  { code: "total_365", name: "一年之约", description: "单个习惯累计完成 365 次", icon: "👑", category: "total", threshold: 365 },
-  { code: "full_month", name: "圆满一月", description: "一个自然月内全部应完成日都完成", icon: "🗓️", category: "calendar", threshold: 1 },
-  { code: "full_quarter", name: "圆满一季", description: "连续三个自然月全部应完成日都完成", icon: "🎯", category: "calendar", threshold: 3 },
+  { code: "streak_3", name: "初次坚持", description: "连续坚持 3 天", icon: "sprout", category: "streak", threshold: 3 },
+  { code: "streak_7", name: "一周达人", description: "连续坚持 7 天", icon: "flame", category: "streak", threshold: 7 },
+  { code: "streak_14", name: "两周不断", description: "连续坚持 14 天", icon: "zap", category: "streak", threshold: 14 },
+  { code: "streak_30", name: "月度坚持", description: "连续坚持 30 天", icon: "medal", category: "streak", threshold: 30 },
+  { code: "streak_50", name: "五十日之约", description: "连续坚持 50 天", icon: "trophy", category: "streak", threshold: 50 },
+  { code: "streak_100", name: "百日坚持", description: "连续坚持 100 天", icon: "crown", category: "streak", threshold: 100 },
+  { code: "total_10", name: "小有所成", description: "单个习惯累计完成 10 次", icon: "sparkles", category: "total", threshold: 10 },
+  { code: "total_50", name: "积少成多", description: "单个习惯累计完成 50 次", icon: "dumbbell", category: "total", threshold: 50 },
+  { code: "total_100", name: "百次里程碑", description: "单个习惯累计完成 100 次", icon: "gem", category: "total", threshold: 100 },
+  { code: "total_365", name: "一年之约", description: "单个习惯累计完成 365 次", icon: "star", category: "total", threshold: 365 },
+  { code: "full_month", name: "圆满一月", description: "一个自然月内全部应完成日都完成", icon: "calendar-check", category: "calendar", threshold: 1 },
+  { code: "full_quarter", name: "圆满一季", description: "连续三个自然月全部应完成日都完成", icon: "calendar-days", category: "calendar", threshold: 3 },
 ];
 
 function monthsBetween(start: string, end: string): [string, string][] {

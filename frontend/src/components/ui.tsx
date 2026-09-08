@@ -52,14 +52,18 @@ export function EmptyState({
   desc,
   action,
 }: {
-  icon?: string;
+  icon?: ReactNode;
   title: string;
   desc?: string;
   action?: ReactNode;
 }) {
   return (
     <div className="empty-state">
-      {icon && <div className="text-3xl">{icon}</div>}
+      {icon && (
+        <div className="mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-brand-500/10 text-brand-500 dark:text-brand-300">
+          {icon}
+        </div>
+      )}
       <div className="text-sm font-medium text-ink">{title}</div>
       {desc && <div className="caption max-w-xs">{desc}</div>}
       {action && <div className="mt-2">{action}</div>}

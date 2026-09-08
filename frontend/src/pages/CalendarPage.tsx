@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
+import HabitIcon from "../components/HabitIcon";
 import Icon from "../components/Icon";
 import { toast } from "../components/Layout";
 import RecordDialog from "../components/RecordDialog";
@@ -125,7 +126,7 @@ export default function CalendarPage() {
             return (
               <button
                 key={d}
-                className={`flex h-11 flex-col items-center justify-center rounded-xl text-xs transition ${STATUS_STYLE[st]} ${
+                className={`flex h-11 flex-col items-center justify-center rounded-lg text-xs transition ${STATUS_STYLE[st]} ${
                   isSel ? "ring-2 ring-brand-500 ring-offset-1" : ""
                 }`}
                 onClick={() => setSelected(d)}
@@ -153,10 +154,14 @@ export default function CalendarPage() {
       {/* Selected day panel */}
       <section className="card p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-ink">{selected} 的记录</h2>
+          <h2 className="section-title">{selected} 的记录</h2>
           {selected <= today && (
-            <button className="text-xs text-brand-600 hover:underline" onClick={() => setAdding(true)}>
-              ＋ 补录
+            <button
+              className="flex items-center gap-1 text-xs font-medium text-brand-600 hover:underline dark:text-brand-300"
+              onClick={() => setAdding(true)}
+            >
+              <Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2.2} />
+              补录
             </button>
           )}
         </div>
@@ -171,14 +176,20 @@ export default function CalendarPage() {
             return (
               <button
                 key={r.id}
-                className="flex w-full items-center gap-3 rounded-xl border border-line-2 p-2.5 text-left hover:bg-line-2"
+                className="flex w-full items-center gap-3 rounded-lg border border-line-2 p-2.5 text-left transition hover:border-brand-300 hover:bg-brand-500/5"
                 onClick={() => setEditRecord(r)}
               >
-                <span className="text-lg">{h?.icon ?? "🌱"}</span>
-                <span className="flex-1 text-sm text-ink">{h?.name ?? `习惯 ${r.habit_id}`}</span>
-                <span className="text-xs text-ink-3">
-                  {r.is_backfilled && "🔧 "}
-                  {r.is_completed ? "✅" : "⬜"}
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center">
+                  <HabitIcon icon={h?.icon ?? "sprout"} className="h-5 w-5" />
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm text-ink">{h?.name ?? `习惯 ${r.habit_id}`}</span>
+                <span className="flex shrink-0 items-center gap-1 text-xs text-ink-3">
+                  {r.is_backfilled && <Icon name="wrench" className="h-3 w-3 text-warning-500" />}
+                  {r.is_completed ? (
+                    <Icon name="check" className="h-3.5 w-3.5 text-success-500" strokeWidth={2.4} />
+                  ) : (
+                    <Icon name="circle" className="h-3.5 w-3.5 text-ink-3" strokeWidth={2} />
+                  )}
                   {r.value_number != null && ` ${r.value_number}${h?.unit ? ` ${h.unit}` : ""}`}
                   {r.value_text && ` ${r.value_text}`}
                   {r.value_time && ` ${r.value_time}`}
@@ -194,13 +205,21 @@ export default function CalendarPage() {
               <button
                 key={h.id}
                 disabled={savingId === h.id}
-                className="rounded-xl border border-dashed border-line p-2 text-xs text-ink-2 hover:border-brand-400 hover:text-brand-600"
+                className="rounded-lg border border-dashed border-line p-2 text-xs text-ink-2 transition hover:border-brand-400 hover:text-brand-600"
                 onClick={() => {
                   if (h.record_type === "boolean") void quickBackfill(h);
                   else setEditRecord({ ...emptyRecord(h.id), habit_id: h.id });
                 }}
               >
-                {savingId === h.id ? "…" : `${h.icon} ${h.name}${h.record_type === "boolean" ? " ⚡" : ""}`}
+                {savingId === h.id ? (
+                  "…"
+                ) : (
+                  <span className="flex items-center justify-center gap-1">
+                    <HabitIcon icon={h.icon} className="h-4 w-4" />
+                    <span className="truncate">{h.name}</span>
+                    {h.record_type === "boolean" && <Icon name="zap" className="h-3 w-3" />}
+                  </span>
+                )}
               </button>
             ))}
           </div>

@@ -7,7 +7,6 @@ import Habits from "./pages/Habits";
 import Journal from "./pages/Journal";
 import Settings from "./pages/Settings";
 import Statistics from "./pages/Statistics";
-import StyleGuide from "./pages/StyleGuide";
 
 export default function App() {
   return (
@@ -21,7 +20,6 @@ export default function App() {
         <Route path="statistics" element={<Statistics />} />
         <Route path="journal" element={<Journal />} />
         <Route path="settings" element={<Settings />} />
-        <Route path="style" element={<StyleGuide />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

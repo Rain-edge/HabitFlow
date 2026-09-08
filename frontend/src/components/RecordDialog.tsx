@@ -39,7 +39,7 @@ export default function RecordDialog({ habit, recordDate, existing, onClose, onS
   }, [existing, habit.id, recordDate]);
 
   const isEdit = !!existing;
-  const title = `${habit.icon} ${habit.name} · ${recordDate}${existing?.is_backfilled ? "（补签）" : ""}`;
+  const title = `${habit.name} · ${recordDate}${existing?.is_backfilled ? "（补签）" : ""}`;
 
   const save = async () => {
     setSaving(true);
@@ -125,7 +125,7 @@ export default function RecordDialog({ habit, recordDate, existing, onClose, onS
             {(habit.select_options || []).map((opt) => (
               <button
                 key={opt}
-                className={`rounded-xl border px-3 py-1.5 text-sm ${
+                className={`rounded-lg border px-3 py-1.5 text-sm ${
                   valueText === opt
                     ? "border-brand-500 bg-brand-500/10 text-brand-600 dark:text-brand-300"
                     : "border-line text-ink-2 hover:bg-line-2"
@@ -164,7 +164,7 @@ export default function RecordDialog({ habit, recordDate, existing, onClose, onS
             confirmingDelete ? (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-ink-3">删除后该日期可重新记录</span>
-                <button className="rounded-xl bg-danger-500 px-3 py-2 text-sm text-white hover:bg-danger-600" onClick={remove}>
+                <button className="rounded-md bg-danger-500/10 px-3 py-2 text-sm font-medium text-danger-600 hover:bg-danger-500/15" onClick={remove}>
                   确认删除
                 </button>
                 <button className="btn-ghost px-2 py-1 text-xs" onClick={() => setConfirmingDelete(false)}>
@@ -172,7 +172,7 @@ export default function RecordDialog({ habit, recordDate, existing, onClose, onS
                 </button>
               </div>
             ) : (
-              <button className="rounded-xl px-3 py-2 text-sm text-danger-500 hover:bg-danger-500/10" onClick={() => setConfirmingDelete(true)}>
+              <button className="rounded-md px-3 py-2 text-sm font-medium text-danger-500 hover:bg-danger-500/10" onClick={() => setConfirmingDelete(true)}>
                 删除记录
               </button>
             )

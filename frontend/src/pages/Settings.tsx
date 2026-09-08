@@ -7,7 +7,6 @@ import { useAuth } from "../state/auth";
 export default function Settings() {
   const { user, refresh } = useAuth();
   const [username, setUsername] = useState(user?.username ?? "");
-  const [timezone, setTimezone] = useState(user?.timezone ?? "Asia/Shanghai");
   const [summaryEnabled, setSummaryEnabled] = useState(true);
   const [summaryTime, setSummaryTime] = useState("22:00");
   const [habitReminders, setHabitReminders] = useState(true);
@@ -43,7 +42,7 @@ export default function Settings() {
 
   const saveProfile = async () => {
     try {
-      await api.put("/users/me", { username, timezone });
+      await api.put("/users/me", { username });
       await refresh();
       toast("资料已保存", "success");
     } catch (e) {
@@ -69,28 +68,25 @@ export default function Settings() {
       <h1 className="page-title">设置</h1>
 
       <section className="card card-pad space-y-4">
-        <h2 className="text-sm font-semibold text-ink">账号</h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
-            <label className="label">邮箱</label>
-            <input className="input bg-card-2" value={user?.email ?? ""} disabled />
+        <h2 className="section-title">个人资料</h2>
+        <div>
+          <label className="label">昵称</label>
+          <div className="flex items-end gap-2">
+            <input
+              className="input max-w-xs"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="给自己起个名字"
+            />
+            <button className="btn-primary shrink-0" onClick={saveProfile}>
+              保存
+            </button>
           </div>
-          <div>
-            <label className="label">昵称</label>
-            <input className="input" value={username} onChange={(e) => setUsername(e.target.value)} />
-          </div>
-          <div>
-            <label className="label">时区</label>
-            <input className="input" value={timezone} onChange={(e) => setTimezone(e.target.value)} placeholder="Asia/Shanghai" />
-          </div>
-        </div>
-        <div className="flex justify-end">
-          <button className="btn-primary" onClick={saveProfile}>保存资料</button>
         </div>
       </section>
 
       <section className="card card-pad space-y-4">
-        <h2 className="text-sm font-semibold text-ink">提醒</h2>
+        <h2 className="section-title">提醒</h2>
         <label className="flex items-center justify-between text-sm text-ink-2">
           <span>习惯提醒（按每个习惯设置的提醒时间）</span>
           <input type="checkbox" checked={habitReminders} onChange={(e) => setHabitReminders(e.target.checked)} />
@@ -108,22 +104,32 @@ export default function Settings() {
           提醒以站内通知和浏览器通知呈现；需要浏览器授权通知权限。
         </p>
         <div className="flex justify-end">
-          <button className="btn-primary" onClick={saveNotifications}>保存提醒设置</button>
+          <button className="btn-primary" onClick={saveNotifications}>保存</button>
         </div>
       </section>
 
       <section className="card card-pad space-y-4">
-        <h2 className="text-sm font-semibold text-ink">数据导出</h2>
-        <p className="text-xs text-ink-3">导出你的全部习惯、记录、日志与统计数据，用于备份。</p>
-        <div className="flex gap-2">
-          <button className="btn-ghost" onClick={() => downloadExport("json")}>导出 JSON</button>
-          <button className="btn-ghost" onClick={() => downloadExport("csv")}>导出 CSV</button>
+        <h2 className="section-title">数据与备份</h2>
+        <p className="text-xs text-ink-3">
+          所有数据保存在本机浏览器中（IndexedDB）。换设备或卸载应用前，建议先导出备份；导入 JSON 可从备份恢复，已存在的条目会跳过，不会覆盖现有数据。
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button className="btn-ghost" onClick={() => downloadExport("json")}>
+            导出 JSON
+          </button>
+          <button className="btn-ghost" onClick={() => downloadExport("csv")}>
+            导出 CSV
+          </button>
+          <button className="btn-ghost" onClick={() => fileRef.current?.click()}>
+            导入 JSON
+          </button>
+          <button
+            className="btn-ghost text-danger-500 hover:bg-danger-500/10 hover:text-danger-600"
+            onClick={() => setConfirmClear(true)}
+          >
+            清除全部数据
+          </button>
         </div>
-      </section>
-
-      <section className="card card-pad space-y-4">
-        <h2 className="text-sm font-semibold text-ink">数据导入</h2>
-        <p className="text-xs text-ink-3">从 JSON 备份恢复数据。已存在的条目会跳过，不会覆盖或清空现有数据。</p>
         <input
           ref={fileRef}
           type="file"
@@ -134,22 +140,6 @@ export default function Settings() {
             if (f) void onImportFile(f);
           }}
         />
-        <div>
-          <button className="btn-ghost" onClick={() => fileRef.current?.click()}>导入 JSON</button>
-        </div>
-      </section>
-
-      <section className="card card-pad space-y-4">
-        <h2 className="text-sm font-semibold text-ink">数据</h2>
-        <p className="text-xs text-ink-3">所有数据保存在本机浏览器中（IndexedDB）。清除浏览器数据或卸载应用会删除记录，建议定期导出备份。</p>
-        <div className="flex gap-2">
-          <button
-            className="btn-ghost text-danger-500 hover:bg-danger-500/10"
-            onClick={() => setConfirmClear(true)}
-          >
-            清除全部数据
-          </button>
-        </div>
       </section>
 
       {confirmClear && (

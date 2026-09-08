@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Capacitor, SystemBars, SystemBarsStyle, SystemBarType } from "@capacitor/core";
 import { api, runLocalNotifications } from "../api/client";
 import { useAuth } from "../state/auth";
 import { todayISO } from "../utils/date";
@@ -42,6 +43,21 @@ export default function Layout() {
   const [hintOpen, setHintOpen] = useState(false);
   const toastId = useRef(0);
   const gPressed = useRef(false);
+
+  // Keep status-bar icon color in sync with the app theme (native only).
+  const applySystemBarStyle = useCallback((isDark: boolean) => {
+    if (!Capacitor.isNativePlatform()) return;
+    void SystemBars.setStyle({
+      bar: SystemBarType.StatusBar,
+      style: isDark ? SystemBarsStyle.Dark : SystemBarsStyle.Light,
+    }).catch(() => {
+      /* non-fatal */
+    });
+  }, []);
+
+  useEffect(() => {
+    applySystemBarStyle(dark);
+  }, [dark, applySystemBarStyle]);
 
   // Global shortcuts: g+<key> navigates, ? toggles help, Esc closes help
   useEffect(() => {
@@ -183,7 +199,7 @@ export default function Layout() {
       to={n.to}
       end={n.end}
       className={({ isActive }) =>
-        `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+        `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
           isActive ? "bg-brand-500/10 text-brand-600 dark:text-brand-300" : "text-ink-2 hover:bg-line-2"
         }`
       }
@@ -211,14 +227,12 @@ export default function Layout() {
       </aside>
 
       <div className="flex min-h-screen flex-1 flex-col">
-        {/* Top bar */}
+        {/* Top bar — the native layer reserves the status-bar space (MainActivity
+            pads the WebView host), so no extra safe-area padding is needed here. */}
         <header className="sticky top-0 z-20 flex items-center justify-between border-b border-line bg-card/90 px-4 py-3 backdrop-blur">
           <div className="flex items-center gap-2 lg:hidden">
             <Logo size={26} />
             <span className="font-display font-bold tracking-tight">HabitFlow</span>
-          </div>
-          <div className="hidden text-sm text-ink-3 lg:block">
-            坚持每一天，看见改变。
           </div>
           <div className="flex items-center gap-1">
             <button className="icon-btn" onClick={toggleTheme} aria-label="切换主题" title="切换主题">
@@ -226,7 +240,7 @@ export default function Layout() {
             </button>
             <div className="relative">
             <button
-              className="relative rounded-xl p-2 text-lg hover:bg-line-2"
+              className="relative rounded-lg p-2 text-lg hover:bg-line-2"
               onClick={() => {
                 setInboxOpen((o) => !o);
                 loadInbox();
@@ -253,7 +267,7 @@ export default function Layout() {
                   {inbox.map((n) => (
                     <div
                       key={n.id}
-                      className={`rounded-xl p-2 text-xs ${n.is_read ? "bg-card-2 text-ink-2" : "bg-brand-500/10 text-ink"}`}
+                      className={`rounded-lg p-2 text-xs ${n.is_read ? "bg-card-2 text-ink-2" : "bg-brand-500/10 text-ink"}`}
                     >
                       <div className="font-medium">{n.title}</div>
                       {n.body && <div className="mt-0.5 text-ink-3">{n.body}</div>}
@@ -270,7 +284,7 @@ export default function Layout() {
           <Outlet />
         </main>
 
-        {/* Mobile bottom nav */}
+        {/* Mobile bottom nav — native layer reserves the gesture-bar space */}
         <nav className="fixed inset-x-0 bottom-0 z-20 flex justify-around border-t border-line bg-card py-2 lg:hidden">
           {NAV.map((n) => (
             <NavLink
@@ -297,12 +311,12 @@ export default function Layout() {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`animate-toast-in rounded-xl px-4 py-2 text-sm text-white shadow-lg ${
+            className={`flex animate-toast-in items-center gap-2 rounded-lg px-4 py-2 text-sm text-white shadow-lg ${
               t.kind === "error" ? "bg-danger-500" : t.kind === "success" ? "bg-success-500" : "bg-ink text-card"
             }`}
           >
-            {t.kind === "error" && "⚠ "}
-            {t.kind === "success" && "✓ "}
+            {t.kind === "error" && <Icon name="alert" className="h-4 w-4 shrink-0" />}
+            {t.kind === "success" && <Icon name="check" className="h-4 w-4 shrink-0" strokeWidth={2.4} />}
             {t.message}
           </div>
         ))}

@@ -4,14 +4,14 @@
 
 /* ============ Design tokens (CSS variables) ============ */
 :root {
-  --surface: 247 249 248;
+  --surface: 249 249 245;
   --card: 255 255 255;
-  --card-2: 250 252 251;
+  --card-2: 246 249 246;
   --ink: 28 43 40;
   --ink-2: 99 114 109;
   --ink-3: 154 166 161;
-  --line: 227 232 230;
-  --line-2: 237 241 239;
+  --line: 228 233 228;
+  --line-2: 239 243 239;
   color-scheme: light;
 }
 .dark {
@@ -34,26 +34,52 @@
     @apply bg-surface font-sans text-ink antialiased;
     font-feature-settings: "cv02", "cv03";
   }
+  /* Safe-area insets (status bar / gesture bar / notch / punch-hole).
+     Capacitor's bundled SystemBars plugin (insetsHandling: "css") injects the
+     real values as --safe-area-inset-* — Android WebView < 140 returns wrong
+     values from env(), so the injected variable comes first, env() as fallback.
+     On desktop / non-edge-to-edge these all resolve to 0px (no side effects). */
+  .safe-top {
+    padding-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  }
+  .safe-bottom {
+    padding-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  }
+  .safe-left {
+    padding-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  }
+  .safe-right {
+    padding-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  }
   /* clear, tabular numerals for dates / streaks / stats */
   .num,
   .font-display {
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
   }
+
+  /* native form controls follow the brand accent for a cohesive look */
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: #18a396;
+  }
+  select.input {
+    background-image: none;
+  }
 }
 
 @layer components {
   /* ---------- Card ---------- */
   .card {
-    @apply rounded-card border border-line bg-card shadow-xs;
-  }
-  @media (hover: hover) {
-    .card {
-      @apply transition-all duration-150 ease-soft hover:-translate-y-px hover:shadow-md;
-    }
+    @apply rounded-card border border-line bg-card;
   }
   .card-pad {
     @apply p-4 sm:p-5;
+  }
+
+  /* Hero card — quiet, no gradient decoration */
+  .hero-card {
+    @apply rounded-card border border-line bg-card;
   }
 
   /* ---------- Typography ---------- */
@@ -72,19 +98,19 @@
 
   /* ---------- Buttons ---------- */
   .btn {
-    @apply inline-flex select-none items-center justify-center gap-1.5 rounded-lg text-sm font-medium transition-all duration-150 ease-soft active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex select-none items-center justify-center gap-1.5 rounded-sm text-sm font-medium transition-all duration-150 ease-soft active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50;
   }
   .btn-md {
     @apply px-4 py-2;
   }
   .btn-sm {
-    @apply rounded-md px-2.5 py-1.5 text-xs;
+    @apply px-2.5 py-1.5 text-xs;
   }
   .btn-lg {
-    @apply rounded-lg px-5 py-2.5 text-base;
+    @apply px-5 py-2.5 text-base;
   }
   .btn-primary {
-    @apply btn bg-brand-500 text-white shadow-xs hover:bg-brand-600;
+    @apply btn bg-brand-500/10 text-brand-700 hover:bg-brand-500/15 dark:text-brand-300 dark:hover:bg-brand-500/20;
   }
   .btn-secondary {
     @apply btn border border-line bg-card text-ink hover:bg-card-2;
@@ -93,18 +119,15 @@
     @apply btn text-ink-2 hover:bg-line-2 hover:text-ink;
   }
   .btn-danger {
-    @apply btn bg-danger-500 text-white hover:bg-danger-600;
-  }
-  .btn-soft {
-    @apply btn bg-brand-500/10 text-brand-600 hover:bg-brand-500/15 dark:text-brand-300;
+    @apply btn bg-danger-500/10 text-danger-600 hover:bg-danger-500/15 dark:text-danger-500 dark:hover:bg-danger-500/20;
   }
   .icon-btn {
-    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-2 transition hover:bg-line-2 hover:text-ink;
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-2 transition hover:bg-line-2 hover:text-ink;
   }
 
   /* ---------- Inputs ---------- */
   .input {
-    @apply w-full rounded-lg border border-line bg-card px-3 py-2 text-sm text-ink placeholder:text-ink-3 outline-none transition focus:border-brand-400 focus:shadow-ring;
+    @apply w-full rounded-md border border-line bg-card px-3 py-2 text-sm text-ink placeholder:text-ink-3 outline-none transition focus:border-brand-400 focus:shadow-ring;
   }
   .label {
     @apply mb-1.5 block text-xs font-medium text-ink-2;
@@ -181,6 +204,6 @@
     @apply check-circle border-line bg-card-2 text-ink-2 hover:border-brand-400 hover:text-brand-500;
   }
   .check-circle-on {
-    @apply check-circle border-transparent text-white shadow-xs;
+    @apply check-circle border-transparent text-white;
   }
 }

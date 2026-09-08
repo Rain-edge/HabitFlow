@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
+import HabitIcon from "../components/HabitIcon";
+import Icon from "../components/Icon";
 import RecordDialog from "../components/RecordDialog";
 import { toast } from "../components/Layout";
 import { EmptyState, PageLoading, ProgressBar, SectionTitle, StatCard } from "../components/ui";
@@ -130,17 +132,25 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Hero: today at a glance */}
-      <section className="card card-pad animate-fade-up">
+      <section className="hero-card card-pad animate-fade-up">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="caption">{weekdayCN(data.date)}</p>
             <h1 className="page-title num mt-1">{formatCN(data.date)}</h1>
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              {bestStreak > 0 && <span className="streak-chip num">🔥 连续坚持 {bestStreak} 天</span>}
+              {bestStreak > 0 && (
+                <span className="streak-chip num">
+                  <Icon name="flame" className="h-3.5 w-3.5" />
+                  连续坚持 {bestStreak} 天
+                </span>
+              )}
               {todoCount > 0 ? (
                 <span className="badge-warn">还有 {todoCount} 项待完成</span>
               ) : (
-                <span className="badge-success">今天全部完成 🎉</span>
+                <span className="badge-success">
+                  <Icon name="check" className="h-3 w-3" strokeWidth={2.5} />
+                  今天全部完成
+                </span>
               )}
             </div>
           </div>
@@ -174,7 +184,7 @@ export default function Dashboard() {
 
         {visible.length === 0 && (
           <EmptyState
-            icon="🌱"
+            icon={<Icon name="sprout" className="h-6 w-6" />}
             title="还没有习惯"
             desc="创建你想坚持的事情：喝水、运动、早睡、阅读…"
             action={
@@ -220,7 +230,13 @@ export default function Dashboard() {
                           : "完成打卡"
                   }
                 >
-                  {savingId === item.habit_id ? "…" : item.done_today ? "✓" : habit.icon}
+                  {savingId === item.habit_id ? (
+                    "…"
+                  ) : item.done_today ? (
+                    <Icon name="check" className="h-5 w-5" strokeWidth={2.6} />
+                  ) : (
+                    <HabitIcon icon={habit.icon} className="h-[22px] w-[22px]" />
+                  )}
                 </button>
 
                 <div className="min-w-0 flex-1">
@@ -233,7 +249,12 @@ export default function Dashboard() {
                     >
                       {item.name}
                     </Link>
-                    {item.record?.is_backfilled && <span className="badge-warn">🔧 补签</span>}
+                    {item.record?.is_backfilled && (
+                      <span className="badge-warn">
+                        <Icon name="wrench" className="h-3 w-3" />
+                        补签
+                      </span>
+                    )}
                   </div>
                   <div className="caption mt-1">
                     {weekly
@@ -256,7 +277,8 @@ export default function Dashboard() {
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   {item.current_streak > 0 && (
                     <span className="streak-chip num">
-                      🔥 {item.current_streak} {item.streak_unit === "week" ? "周" : "天"}
+                      <Icon name="flame" className="h-3 w-3" />
+                      {item.current_streak} {item.streak_unit === "week" ? "周" : "天"}
                     </span>
                   )}
                   {quickInput?.id === item.habit_id ? (

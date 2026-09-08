@@ -48,7 +48,7 @@ export default {
         // --- state colors ---
         success: { 100: "#DFF3E8", 500: "#2FA36B", 600: "#278A5A" },
         warning: { 100: "#FBF0D2", 500: "#E8A400", 600: "#C08A00" },
-        danger: { 100: "#FBE3E4", 500: "#E5484D", 600: "#C93A3F" },
+        danger: { 100: "#FBE3E4", 500: "#E5484D", 600: "#C93A3F", 700: "#AC2B30" },
       },
 
       fontFamily: {

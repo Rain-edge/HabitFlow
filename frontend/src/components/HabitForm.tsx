@@ -2,11 +2,18 @@ import { useState } from "react";
 import { api } from "../api/client";
 import type { Habit, RecordType, ScheduleType } from "../types";
 import { todayISO } from "../utils/date";
+import Icon from "./Icon";
+import type { IconName } from "./Icon";
 import Modal from "./Modal";
 import { toast } from "./Layout";
 
-const ICONS = ["🌱", "💧", "🏃", "📚", "🌙", "😊", "🍚", "🧘", "✍️", "💪", "🎯", "☀️"];
-const COLORS = ["#4F8EF7", "#F76E4F", "#4FBF8E", "#8B6EF7", "#F7C94F", "#F74F8E", "#4FC3F7", "#8D6E63"];
+const ICONS: IconName[] = [
+  "sprout", "droplets", "footprints", "book-open", "moon", "smile",
+  "utensils", "flower", "pen-line", "dumbbell", "target", "sun",
+  "heart-pulse", "coffee", "music", "alarm-clock",
+];
+// Low-saturation, calm palette — teal / blue / violet family with two warm accents.
+const COLORS = ["#18A396", "#5B8DEF", "#8B7CF6", "#4FA8C9", "#6FA88F", "#E89B5B", "#D98BA0", "#7C8FA6"];
 const WEEKDAY_NAMES = ["一", "二", "三", "四", "五", "六", "日"];
 
 const RECORD_TYPES: { value: RecordType; label: string; desc: string }[] = [
@@ -29,8 +36,8 @@ export default function HabitForm({ habit, onClose, onSaved }: Props) {
   const isEdit = !!habit;
   const [name, setName] = useState(habit?.name ?? "");
   const [description, setDescription] = useState(habit?.description ?? "");
-  const [icon, setIcon] = useState(habit?.icon ?? "🌱");
-  const [color, setColor] = useState(habit?.color ?? "#4F8EF7");
+  const [icon, setIcon] = useState(habit?.icon ?? "sprout");
+  const [color, setColor] = useState(habit?.color ?? "#18A396");
   const [category, setCategory] = useState(habit?.category ?? "general");
   const [recordType, setRecordType] = useState<RecordType>(habit?.record_type ?? "boolean");
   const [targetValue, setTargetValue] = useState(habit?.target_value?.toString() ?? "");
@@ -109,10 +116,16 @@ export default function HabitForm({ habit, onClose, onSaved }: Props) {
             {ICONS.map((i) => (
               <button
                 key={i}
-                className={`rounded-lg p-1.5 text-lg ${icon === i ? "bg-brand-500/10 ring-2 ring-brand-400" : "hover:bg-line-2"}`}
+                type="button"
+                className={`flex h-9 w-9 items-center justify-center rounded-md transition ${
+                  icon === i
+                    ? "bg-brand-600 text-white"
+                    : "text-ink-2 hover:bg-line-2 hover:text-ink"
+                }`}
                 onClick={() => setIcon(i)}
+                aria-label={i}
               >
-                {i}
+                <Icon name={i} className="h-5 w-5" />
               </button>
             ))}
           </div>
@@ -150,7 +163,7 @@ export default function HabitForm({ habit, onClose, onSaved }: Props) {
             {RECORD_TYPES.map((t) => (
               <button
                 key={t.value}
-                className={`rounded-xl border p-2 text-left ${
+                className={`rounded-lg border p-2 text-left ${
                   recordType === t.value ? "border-brand-500 bg-brand-500/10" : "border-line hover:bg-line-2"
                 }`}
                 onClick={() => setRecordType(t.value)}
@@ -203,7 +216,7 @@ export default function HabitForm({ habit, onClose, onSaved }: Props) {
             ).map((o) => (
               <button
                 key={o.v}
-                className={`rounded-xl border px-3 py-1.5 text-sm ${
+                className={`rounded-lg border px-3 py-1.5 text-sm ${
                   scheduleType === o.v ? "border-brand-500 bg-brand-500/10 text-brand-600 dark:text-brand-300" : "border-line text-ink-2"
                 }`}
                 onClick={() => setScheduleType(o.v)}
@@ -252,7 +265,7 @@ export default function HabitForm({ habit, onClose, onSaved }: Props) {
           </div>
         </div>
 
-        <div className="space-y-2 rounded-xl bg-card-2 p-3 text-sm text-ink-2">
+        <div className="space-y-2 rounded-lg bg-card-2 p-3 text-sm text-ink-2">
           <label className="flex items-center justify-between">
             <span>每日提醒</span>
             <span className="flex items-center gap-2">

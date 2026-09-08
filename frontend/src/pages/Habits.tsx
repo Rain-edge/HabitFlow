@@ -3,6 +3,8 @@ import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import ConfirmDialog from "../components/ConfirmDialog";
 import HabitForm from "../components/HabitForm";
+import HabitIcon from "../components/HabitIcon";
+import Icon from "../components/Icon";
 import { toast } from "../components/Layout";
 import { EmptyState } from "../components/ui";
 import type { Habit } from "../types";
@@ -85,7 +87,8 @@ export default function Habits() {
       <div className="flex items-center justify-between">
         <h1 className="page-title">我的习惯</h1>
         <button className="btn-primary" onClick={() => { setEditing(undefined); setShowForm(true); }}>
-          ＋ 新建习惯
+          <Icon name="plus" className="h-4 w-4" strokeWidth={2.2} />
+          新建习惯
         </button>
       </div>
 
@@ -134,10 +137,14 @@ export default function Habits() {
       {visible.length === 0 && (
         <div className="card">
           {query || catFilter ? (
-            <EmptyState icon="🔍" title="没有匹配的习惯" desc="换个关键词或分类试试。" />
+            <EmptyState
+              icon={<Icon name="search" className="h-5 w-5" />}
+              title="没有匹配的习惯"
+              desc="换个关键词或分类试试。"
+            />
           ) : (
             <EmptyState
-              icon="🌱"
+              icon={<Icon name="sprout" className="h-6 w-6" />}
               title="还没有习惯"
               desc="创建你想坚持的事情：喝水、运动、早睡、阅读…"
               action={
@@ -162,10 +169,10 @@ export default function Habits() {
             <div className="flex items-start justify-between gap-3">
               <Link to={`/habits/${h.id}`} className="flex min-w-0 items-center gap-3">
                 <span
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
                   style={{ backgroundColor: `${h.color}22` }}
                 >
-                  {h.icon}
+                  <HabitIcon icon={h.icon} className="h-5 w-5" />
                 </span>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
@@ -191,7 +198,7 @@ export default function Habits() {
                     >
                       编辑
                     </button>
-                    <button className="rounded-xl px-2 py-1 text-xs text-danger-500 hover:bg-danger-500/10" onClick={() => setRemoving(h)}>
+                    <button className="rounded-lg px-2 py-1 text-xs text-danger-500 hover:bg-danger-500/10" onClick={() => setRemoving(h)}>
                       删除
                     </button>
                   </>
