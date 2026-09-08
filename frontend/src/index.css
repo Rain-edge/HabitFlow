@@ -1,0 +1,186 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============ Design tokens (CSS variables) ============ */
+:root {
+  --surface: 247 249 248;
+  --card: 255 255 255;
+  --card-2: 250 252 251;
+  --ink: 28 43 40;
+  --ink-2: 99 114 109;
+  --ink-3: 154 166 161;
+  --line: 227 232 230;
+  --line-2: 237 241 239;
+  color-scheme: light;
+}
+.dark {
+  --surface: 14 21 19;
+  --card: 22 32 29;
+  --card-2: 27 38 34;
+  --ink: 232 239 234;
+  --ink-2: 159 176 168;
+  --ink-3: 108 124 118;
+  --line: 38 49 45;
+  --line-2: 30 40 37;
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-surface font-sans text-ink antialiased;
+    font-feature-settings: "cv02", "cv03";
+  }
+  /* clear, tabular numerals for dates / streaks / stats */
+  .num,
+  .font-display {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+}
+
+@layer components {
+  /* ---------- Card ---------- */
+  .card {
+    @apply rounded-card border border-line bg-card shadow-xs;
+  }
+  @media (hover: hover) {
+    .card {
+      @apply transition-all duration-150 ease-soft hover:-translate-y-px hover:shadow-md;
+    }
+  }
+  .card-pad {
+    @apply p-4 sm:p-5;
+  }
+
+  /* ---------- Typography ---------- */
+  .page-title {
+    @apply text-xl font-semibold tracking-tight text-ink;
+  }
+  .section-title {
+    @apply text-sm font-semibold text-ink;
+  }
+  .caption {
+    @apply text-xs text-ink-2;
+  }
+  .stat-number {
+    @apply font-display text-2xl font-bold leading-none tracking-tight text-ink;
+  }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-1.5 rounded-lg text-sm font-medium transition-all duration-150 ease-soft active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-md {
+    @apply px-4 py-2;
+  }
+  .btn-sm {
+    @apply rounded-md px-2.5 py-1.5 text-xs;
+  }
+  .btn-lg {
+    @apply rounded-lg px-5 py-2.5 text-base;
+  }
+  .btn-primary {
+    @apply btn bg-brand-500 text-white shadow-xs hover:bg-brand-600;
+  }
+  .btn-secondary {
+    @apply btn border border-line bg-card text-ink hover:bg-card-2;
+  }
+  .btn-ghost {
+    @apply btn text-ink-2 hover:bg-line-2 hover:text-ink;
+  }
+  .btn-danger {
+    @apply btn bg-danger-500 text-white hover:bg-danger-600;
+  }
+  .btn-soft {
+    @apply btn bg-brand-500/10 text-brand-600 hover:bg-brand-500/15 dark:text-brand-300;
+  }
+  .icon-btn {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-2 transition hover:bg-line-2 hover:text-ink;
+  }
+
+  /* ---------- Inputs ---------- */
+  .input {
+    @apply w-full rounded-lg border border-line bg-card px-3 py-2 text-sm text-ink placeholder:text-ink-3 outline-none transition focus:border-brand-400 focus:shadow-ring;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-medium text-ink-2;
+  }
+
+  /* ---------- Badges / chips ---------- */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] font-medium leading-none;
+  }
+  .badge-brand {
+    @apply badge bg-brand-500/10 text-brand-600 dark:text-brand-300;
+  }
+  .badge-warn {
+    @apply badge bg-warning-500/10 text-warning-600 dark:text-warning-500;
+  }
+  .badge-success {
+    @apply badge bg-success-500/10 text-success-600 dark:text-success-500;
+  }
+  .badge-danger {
+    @apply badge bg-danger-500/10 text-danger-600 dark:text-danger-500;
+  }
+  .badge-neutral {
+    @apply badge bg-line-2 text-ink-2;
+  }
+  .streak-chip {
+    @apply inline-flex items-center gap-1 rounded-md bg-flame-500/10 px-2 py-1 font-display text-xs font-bold text-flame-600 dark:text-flame-500;
+  }
+
+  /* ---------- Progress ---------- */
+  .progress {
+    @apply h-2 w-full overflow-hidden rounded-full bg-line-2;
+  }
+  .progress-bar {
+    @apply h-full rounded-full bg-brand-500 transition-all duration-300 ease-soft;
+  }
+
+  /* ---------- States ---------- */
+  .empty-state {
+    @apply flex flex-col items-center justify-center gap-2 rounded-card border border-dashed border-line bg-card-2/50 px-6 py-10 text-center;
+  }
+  .skeleton {
+    @apply animate-shimmer rounded-md bg-line-2;
+    background-image: linear-gradient(90deg, rgb(var(--line-2)) 0%, rgb(var(--card)) 50%, rgb(var(--line-2)) 100%);
+    background-size: 200% 100%;
+  }
+  .error-box {
+    @apply rounded-lg border border-danger-500/30 bg-danger-500/10 px-3 py-2 text-sm text-danger-600 dark:text-danger-500;
+  }
+
+  /* ---------- Range slider (rating inputs) ---------- */
+  input[type="range"] {
+    @apply h-1.5 w-full cursor-pointer appearance-none rounded-full bg-line-2;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    @apply h-4 w-4 rounded-full border-2 border-white bg-brand-500 shadow-sm transition-transform duration-150 ease-soft;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+  }
+  input[type="range"]::-moz-range-thumb {
+    @apply h-4 w-4 rounded-full border-2 border-white bg-brand-500 shadow-sm transition-transform duration-150 ease-soft;
+  }
+  input[type="range"]::-moz-range-thumb:hover {
+    transform: scale(1.15);
+  }
+
+  /* ---------- Check-in circle (the daily tap target) ---------- */
+  .check-circle {
+    @apply flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 text-lg transition-all duration-150 ease-soft active:scale-90;
+  }
+  .check-circle-off {
+    @apply check-circle border-line bg-card-2 text-ink-2 hover:border-brand-400 hover:text-brand-500;
+  }
+  .check-circle-on {
+    @apply check-circle border-transparent text-white shadow-xs;
+  }
+}
