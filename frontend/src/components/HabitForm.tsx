@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../api/client";
 import type { Habit, RecordType, ScheduleType } from "../types";
 import { todayISO } from "../utils/date";
+import ConfirmDialog from "./ConfirmDialog";
 import Icon from "./Icon";
 import type { IconName } from "./Icon";
 import Modal from "./Modal";
@@ -30,9 +31,11 @@ interface Props {
   habit?: Habit;
   onClose: () => void;
   onSaved: () => void;
+  /** Called instead of onSaved after a delete, so callers can toast correctly. */
+  onDeleted?: () => void;
 }
 
-export default function HabitForm({ habit, onClose, onSaved }: Props) {
+export default function HabitForm({ habit, onClose, onSaved, onDeleted }: Props) {
   const isEdit = !!habit;
   const [name, setName] = useState(habit?.name ?? "");
   const [description, setDescription] = useState(habit?.description ?? "");
@@ -55,6 +58,7 @@ export default function HabitForm({ habit, onClose, onSaved }: Props) {
   const [countsForDaily, setCountsForDaily] = useState(habit?.counts_for_daily ?? true);
   const [allowBackfill, setAllowBackfill] = useState(habit?.allow_backfill ?? true);
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const needTarget = recordType === "number" || recordType === "duration";
 
@@ -289,15 +293,49 @@ export default function HabitForm({ habit, onClose, onSaved }: Props) {
           </label>
         </div>
 
-        <div className="flex justify-end gap-2 pt-2">
-          <button className="btn-ghost" onClick={onClose}>
-            取消
-          </button>
-          <button className="btn-primary" onClick={submit} disabled={saving}>
-            {saving ? "保存中…" : isEdit ? "保存修改" : "创建习惯"}
-          </button>
+        <div className={`flex items-center gap-2 pt-2 ${isEdit ? "justify-between" : "justify-end"}`}>
+          {isEdit && (
+            <button
+              className="btn-ghost text-danger-500 hover:bg-danger-500/10 hover:text-danger-600"
+              onClick={() => setConfirmDelete(true)}
+              disabled={saving}
+            >
+              删除习惯
+            </button>
+          )}
+          <div className="flex gap-2">
+            <button className="btn-ghost" onClick={onClose}>
+              取消
+            </button>
+            <button className="btn-primary" onClick={submit} disabled={saving}>
+              {saving ? "保存中…" : isEdit ? "保存修改" : "创建习惯"}
+            </button>
+          </div>
         </div>
       </div>
+
+      {confirmDelete && (
+        <ConfirmDialog
+          title={`删除「${habit!.name}」？`}
+          description="历史记录会保留并继续参与统计，习惯可随时恢复。"
+          confirmLabel="删除"
+          danger
+          onConfirm={() => {
+            void (async () => {
+              try {
+                await api.delete(`/habits/${habit!.id}`);
+                toast("已删除，历史保留", "info");
+                if (onDeleted) onDeleted();
+                else onSaved();
+                onClose();
+              } catch (e) {
+                toast((e as Error).message, "error");
+              }
+            })();
+          }}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
     </Modal>
   );
 }

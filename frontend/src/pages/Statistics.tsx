@@ -119,7 +119,7 @@ export default function Statistics() {
         <StatCard
           label="每周目标"
           value={overview.weekly_goal ? `${overview.weekly_goal.met}/${overview.weekly_goal.total}` : "—"}
-          sub="达标周数"
+          sub={overview.weekly_goal ? "达标周数" : "暂无每周目标习惯"}
         />
       </div>
 
@@ -244,7 +244,7 @@ export default function Statistics() {
             <div
               key={a.code}
               className={`rounded-lg border p-3 transition ${
-                a.unlocked ? "border-brand-200 bg-brand-500/10" : "border-line-2 opacity-50"
+                a.unlocked ? "border-brand-200 bg-brand-500/10" : "border-line-2"
               }`}
             >
               <span
@@ -252,9 +252,9 @@ export default function Statistics() {
                   a.unlocked ? "bg-brand-500/15 text-brand-600 dark:text-brand-300" : "bg-line-2 text-ink-3"
                 }`}
               >
-                <Icon name={a.icon as IconName} className="h-[18px] w-[18px]" />
+                <Icon name={a.icon as IconName} className="h-[18px] w-[18px]" strokeWidth={a.unlocked ? 1.8 : 1.5} />
               </span>
-              <div className="mt-2 text-sm font-medium text-ink">{a.name}</div>
+              <div className={`mt-2 text-sm font-medium ${a.unlocked ? "text-ink" : "text-ink-2"}`}>{a.name}</div>
               <div className="mt-0.5 text-[11px] leading-snug text-ink-3">{a.description}</div>
               {a.unlocked && (
                 <div className="mt-1.5 text-[10px] text-brand-600 dark:text-brand-300">

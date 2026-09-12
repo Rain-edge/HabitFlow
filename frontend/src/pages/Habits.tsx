@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
-import ConfirmDialog from "../components/ConfirmDialog";
 import HabitForm from "../components/HabitForm";
 import HabitIcon from "../components/HabitIcon";
 import Icon from "../components/Icon";
@@ -31,7 +30,6 @@ export default function Habits() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Habit | undefined>();
   const [showDeleted, setShowDeleted] = useState(false);
-  const [removing, setRemoving] = useState<Habit | undefined>();
   const [query, setQuery] = useState("");
   const [catFilter, setCatFilter] = useState("");
   const [sortBy, setSortBy] = useState<"default" | "name" | "newest">("default");
@@ -69,12 +67,6 @@ export default function Habits() {
   });
   const hasDeleted = habits.some((h) => h.deleted_at);
   const categories = [...new Set(habits.filter((h) => h.category && h.category !== "general").map((h) => h.category))].sort();
-
-  const remove = async (h: Habit) => {
-    await api.delete(`/habits/${h.id}`);
-    toast("已删除，历史保留", "info");
-    load();
-  };
 
   const restore = async (h: Habit) => {
     await api.post(`/habits/${h.id}/restore`);
@@ -191,17 +183,12 @@ export default function Habits() {
                     恢复
                   </button>
                 ) : (
-                  <>
-                    <button
-                      className="btn-ghost px-2 py-1 text-xs"
-                      onClick={() => { setEditing(h); setShowForm(true); }}
-                    >
-                      编辑
-                    </button>
-                    <button className="rounded-lg px-2 py-1 text-xs text-danger-500 hover:bg-danger-500/10" onClick={() => setRemoving(h)}>
-                      删除
-                    </button>
-                  </>
+                  <button
+                    className="btn-ghost px-2 py-1 text-xs"
+                    onClick={() => { setEditing(h); setShowForm(true); }}
+                  >
+                    编辑
+                  </button>
                 )}
               </div>
             </div>
@@ -217,20 +204,7 @@ export default function Habits() {
             load();
             toast(editing ? "已保存" : "习惯已创建", "success");
           }}
-        />
-      )}
-
-      {removing && (
-        <ConfirmDialog
-          title={`删除「${removing.name}」？`}
-          description="历史记录会保留，习惯可随时恢复。"
-          confirmLabel="删除"
-          danger
-          onConfirm={() => {
-            void remove(removing);
-            setRemoving(undefined);
-          }}
-          onCancel={() => setRemoving(undefined)}
+          onDeleted={() => void load()}
         />
       )}
     </div>

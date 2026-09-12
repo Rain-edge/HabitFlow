@@ -208,9 +208,7 @@ export default function Dashboard() {
             return (
               <div
                 key={item.habit_id}
-                className={`card flex items-center gap-3.5 p-4 transition-opacity ${
-                  item.done_today ? "opacity-60" : ""
-                }`}
+                className="card flex items-center gap-3.5 p-4"
               >
                 <button
                   className={item.done_today ? "check-circle-on animate-check-pop" : "check-circle-off"}

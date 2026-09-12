@@ -7,9 +7,11 @@ import RecordDialog from "../components/RecordDialog";
 import type { CalendarDay, Habit, HabitRecord } from "../types";
 import { monthGrid, parseISO, todayISO } from "../utils/date";
 
+// Calm pastel fills (light tint + colored text) instead of saturated blocks;
+// the day's done/expected detail stays on the partial cells only.
 const STATUS_STYLE: Record<CalendarDay["status"], string> = {
-  full: "bg-success-500 text-white",
-  partial: "bg-warning-500 text-white",
+  full: "bg-success-500/15 text-success-600 dark:text-success-500",
+  partial: "bg-warning-500/15 text-warning-600 dark:text-warning-500",
   none: "bg-danger-500/10 text-danger-500",
   empty: "bg-card-2 text-ink-3",
   future: "text-ink-3",
@@ -84,9 +86,9 @@ export default function CalendarPage() {
   );
 
   const legend = [
-    ["全部完成", "bg-success-500"],
-    ["部分完成", "bg-warning-500"],
-    ["未完成", "bg-danger-500"],
+    ["全部完成", "bg-success-500/40"],
+    ["部分完成", "bg-warning-500/40"],
+    ["未完成", "bg-danger-500/25"],
     ["无计划", "bg-line-2"],
   ] as const;
 
@@ -132,8 +134,8 @@ export default function CalendarPage() {
                 onClick={() => setSelected(d)}
               >
                 <span className="font-medium">{parseISO(d).getDate()}</span>
-                {st !== "future" && st !== "empty" && dayStatus[d] && (
-                  <span className="text-[9px] opacity-80">
+                {st === "partial" && dayStatus[d] && (
+                  <span className="num text-[9px] opacity-80">
                     {dayStatus[d].done}/{dayStatus[d].expected}
                   </span>
                 )}

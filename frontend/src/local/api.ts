@@ -18,6 +18,13 @@ function notFound(detail = "未找到"): never {
   throw new ApiError(404, detail);
 }
 
+/** Re-run achievement evaluation after a record change (fire-and-forget, never blocks). */
+function reevaluateAchievements(): void {
+  void evaluateAchievements().catch(() => {
+    /* ignore — evaluation failures must never break recording */
+  });
+}
+
 // ---------- habits ----------
 
 async function habitById(id: number): Promise<StoredHabit> {
@@ -123,6 +130,7 @@ export const recordApi = {
       deleted_at: null,
     };
     await localDB.put("records", record);
+    void reevaluateAchievements();
     return record;
   },
   async update(id: number, patch: Partial<RecordInput>): Promise<StoredRecord> {
@@ -139,6 +147,7 @@ export const recordApi = {
       });
     merged.updated_at = new Date().toISOString();
     await localDB.put("records", merged);
+    void reevaluateAchievements();
     return merged;
   },
   async remove(id: number): Promise<void> {
@@ -146,6 +155,7 @@ export const recordApi = {
     record.deleted_at = new Date().toISOString();
     record.updated_at = new Date().toISOString();
     await localDB.put("records", record);
+    void reevaluateAchievements();
   },
 };
 

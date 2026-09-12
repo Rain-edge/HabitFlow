@@ -1,6 +1,7 @@
 // Dev-only demo seeder — triggered by visiting  /?demo=1  (or  ?demo=reset).
 // Never imported by the production build path outside main.tsx's DEV guard.
 import { localDB, StoredHabit, StoredJournal, StoredRecord, StoredNotificationSettings } from "./db";
+import { evaluateAchievements } from "./stats";
 import { toISO } from "./habitLogic";
 
 const DAY = 86_400_000;
@@ -132,6 +133,13 @@ export async function seedDemoData(reset: boolean): Promise<boolean> {
     { journal_date: iso(daysAgo(0)), mood: 8, energy: 8, overall: 8, stress: 3, text: "周末的早晨，阳光很好。", updated_at: `${iso(daysAgo(0))}T10:00:00` },
   ];
   for (const j of journals) await localDB.put("journal", j);
+
+  // Seed writes directly to IDB (bypassing recordApi), so evaluate once here.
+  try {
+    await evaluateAchievements();
+  } catch {
+    /* ignore */
+  }
 
   return true;
 }
