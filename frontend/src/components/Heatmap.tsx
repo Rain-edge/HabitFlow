@@ -63,7 +63,7 @@ export default function Heatmap({ days }: { days: HeatmapDay[] }) {
           {/* month labels */}
           <div className="relative mb-1 h-4">
             {monthLabels.map(({ col, label }) => (
-              <span key={`${col}-${label}`} className="absolute text-[10px] leading-4 text-ink-3" style={{ left: col * 13 }}>
+              <span key={`${col}-${label}`} className="absolute whitespace-nowrap text-[10px] leading-4 text-ink-3" style={{ left: col * 13 }}>
                 {label}
               </span>
             ))}

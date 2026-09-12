@@ -57,7 +57,7 @@ export default function HabitDetail() {
   const yPad = yMax - yMin > 0 ? (yMax - yMin) * 0.15 : Math.max(Math.abs(yMax) * 0.1, 1);
   const yDomain: [number, number] = [yMin - yPad, yMax + yPad];
 
-  // 历史记录按月分组（最近 60 条，最新月份在前）；相邻同月归并，不依赖入参有序
+  // 历史记录按月分组（最近 60 条，最新月份在前）；相邻同月归并，依赖入参按日期升序（stats 层已 sort 保证）
   const historyGroups = (() => {
     const recent = [...stats.values].reverse().slice(0, 60);
     const groups: { month: string; items: typeof recent }[] = [];
@@ -206,7 +206,7 @@ export default function HabitDetail() {
                   axisLine={false}
                   tickLine={false}
                   domain={yDomain}
-                  tickFormatter={(v: number) => `${Math.round(v)}`}
+                  tickFormatter={(v: number) => (Math.abs(v) >= 10 ? `${Math.round(v)}` : `${Number(v.toFixed(1))}`)}
                 />
                 <Tooltip
                   formatter={(v) => [`${v} ${habit.unit || ""}`, "数值"]}
