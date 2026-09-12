@@ -642,7 +642,10 @@ function monthsBetween(start: string, end: string): [string, string][] {
   return out;
 }
 
-function fullMonths(scheduled: string[], completed: Set<string>, today: string): number {
+/** Longest run of consecutive natural months where every scheduled day is completed.
+ *  `skipped` days are excused: they are excluded from a month's required days
+ *  (与全局分母口径一致）；全跳过月视为中性（不计数也不断链）。 */
+export function fullMonths(scheduled: string[], completed: Set<string>, today: string, skipped: Set<string> = new Set()): number {
   if (!scheduled.length) return 0;
   const last = scheduled[scheduled.length - 1] < today ? scheduled[scheduled.length - 1] : today;
   const months = monthsBetween(scheduled[0], last);
@@ -651,7 +654,7 @@ function fullMonths(scheduled: string[], completed: Set<string>, today: string):
   let run = 0;
   for (const [first, lastD] of months) {
     if (lastD > today) break;
-    const inMonth = [...schedSet].filter((d) => d >= first && d <= lastD);
+    const inMonth = [...schedSet].filter((d) => d >= first && d <= lastD && !skipped.has(d));
     if (!inMonth.length) continue;
     if (inMonth.every((d) => completed.has(d))) {
       run += 1;
@@ -722,7 +725,7 @@ export async function evaluateAchievements(): Promise<string[]> {
     }
     if (habit.schedule_type !== "weekly_count") {
       const scheduled = scheduledDates(habit.start_date, today, habit.schedule_type, habit.weekly_days || [], habit.end_date);
-      const consecutive = fullMonths(scheduled, completed, today);
+      const consecutive = fullMonths(scheduled, completed, today, skipped);
       if (consecutive >= 1) candidates.push({ code: "full_month", habitId: habit.id });
       if (consecutive >= 3) candidates.push({ code: "full_quarter", habitId: habit.id });
     }

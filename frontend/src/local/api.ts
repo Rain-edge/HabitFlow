@@ -2,7 +2,7 @@
 // All pages keep their existing call shape (api.get/post/put/delete) but now hit IndexedDB.
 import { localDB, StoredHabit, StoredRecord, StoredJournal, StoredNotificationSettings, StoredInboxItem } from "./db";
 import { evaluateAchievements, todayISO } from "./stats";
-import { isRecordCompleted } from "./habitLogic";
+import { isRecordCompleted, resolveRecordUpdate } from "./habitLogic";
 
 export class ApiError extends Error {
   status: number;
@@ -99,7 +99,7 @@ export const recordApi = {
     if (params.habit_id != null) {
       rows = rows.filter((r) => r.habit_id === params.habit_id);
     }
-    if (params.limit != null) {
+    if (params.limit != null && params.limit > 0) {
       // 「最近 N 条」按日期倒序（habit_id 单独使用时保持原有顺序，向后兼容）
       rows = [...rows]
         .sort((a, b) => b.record_date.localeCompare(a.record_date) || b.id - a.id)
@@ -201,33 +201,18 @@ export const recordApi = {
   async update(id: number, patch: Partial<RecordInput>): Promise<StoredRecord> {
     const record = await recordApi.get(id);
     const habit = await habitById(record.habit_id);
+    if (patch.is_skipped && habit.schedule_type === "weekly_count") {
+      throw new ApiError(400, "每周目标习惯没有「跳过」概念");
+    }
     const merged = { ...record, ...patch, id };
-    // 跳过语义：
-    //  - 显式置为跳过 → 强制满足「is_completed=false 且无数值」不变量
-    //  - 录入真实数值/完成状态（或显式 is_skipped:false）→ 视为真实记录，清除跳过
-    //  - 仅改备注等 → 保持原跳过状态不变
-    if (patch.is_skipped === true) {
+    const resolved = resolveRecordUpdate(habit.record_type, habit.target_value, patch, merged);
+    merged.is_completed = resolved.is_completed;
+    merged.is_skipped = resolved.is_skipped;
+    if (merged.is_skipped) {
+      // 跳过不变量：跳过记录一律无数值
       merged.value_number = null;
       merged.value_text = null;
       merged.value_time = null;
-      merged.is_completed = false;
-      merged.is_skipped = true;
-    } else {
-      merged.is_completed =
-        patch.is_completed ??
-        isRecordCompleted(habit.record_type, {
-          target_value: habit.target_value,
-          value_number: merged.value_number,
-          value_text: merged.value_text,
-          value_time: merged.value_time,
-        });
-      const recordsValues =
-        patch.value_number != null ||
-        patch.value_text != null ||
-        patch.value_time != null ||
-        patch.is_completed !== undefined;
-      if (patch.is_skipped !== undefined) merged.is_skipped = patch.is_skipped;
-      else if (recordsValues) merged.is_skipped = false;
     }
     merged.updated_at = new Date().toISOString();
     await localDB.put("records", merged);
@@ -386,14 +371,16 @@ export function exportData(kind: "json" | "csv") {
       const rows: string[][] = [];
       rows.push(["== habits =="]);
       if (habits.length) {
-        rows.push(Object.keys(habits[0]));
-        for (const h of habits) rows.push(Object.values(h).map((v) => String(v)));
+        // 列头固定用 HABIT_KEYS，与 records 段同口径（防首行旧数据丢列）
+        rows.push(HABIT_KEYS.map(String));
+        for (const h of habits) rows.push(HABIT_KEYS.map((k) => String(h[k] ?? "")));
       }
       rows.push([]);
       rows.push(["== records =="]);
       if (records.length) {
-        rows.push(Object.keys(records[0]));
-        for (const r of records) rows.push(Object.values(r).map((v) => String(v)));
+        // 列头固定用 RECORD_KEYS：首行为旧数据（无 is_skipped 字段）时列不丢
+        rows.push(RECORD_KEYS.map(String));
+        for (const r of records) rows.push(RECORD_KEYS.map((k) => String(r[k] ?? "")));
       }
       content = "\ufeff" + rows.map((r) => r.join(",")).join("\n");
       mime = "text/csv;charset=utf-8";
@@ -496,6 +483,13 @@ export async function importData(raw: string): Promise<ImportResult> {
     const record = sanitize<StoredRecord>(row, RECORD_KEYS, "record") as StoredRecord;
     record.id = id;
     record.is_skipped = !!record.is_skipped; // 旧备份无此字段 → false
+    if (record.is_skipped) {
+      // 与 create/update 同款不变量：跳过记录无数值且不计完成（防脏备份混入）
+      record.value_number = null;
+      record.value_text = null;
+      record.value_time = null;
+      record.is_completed = false;
+    }
     if (record.habit_id == null || !record.record_date) {
       skipped += 1;
       continue;

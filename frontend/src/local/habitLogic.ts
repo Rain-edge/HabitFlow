@@ -92,29 +92,88 @@ export function scheduledDates(
 }
 
 /** Current + longest streak over an ordered list of scheduled dates.
- *  `skipped` days are "bridges": they neither break a run nor reset it, and
- *  they count toward the streak length (完成-跳过-完成 = 连续 3 天). */
+ *  `skipped` days bridge runs: they keep a streak alive but only count toward
+ *  the length of a run that contains at least one real completed day
+ *  (完成-跳过-完成 = 连续 3 天；纯跳过段计 0，零完成连跳攒不出 streak）。
+ *  current walks back from today: completed days +1, skipped days neither
+ *  break the chain nor add to the number. */
 export function dailyStreaks(scheduled: string[], completed: Set<string>, today: string, skipped: Set<string> = new Set()): [number, number] {
   if (scheduled.length === 0) return [0, 0];
-  const status = scheduled.map((d) => completed.has(d) || skipped.has(d));
 
   let longest = 0;
   let run = 0;
-  for (const ok of status) {
-    run = ok ? run + 1 : 0;
-    longest = Math.max(longest, run);
+  let runHasCompletion = false;
+  for (const d of scheduled) {
+    if (completed.has(d)) {
+      run += 1;
+      runHasCompletion = true;
+    } else if (skipped.has(d)) {
+      run += 1;
+    } else {
+      if (runHasCompletion) longest = Math.max(longest, run);
+      run = 0;
+      runHasCompletion = false;
+    }
   }
+  if (runHasCompletion) longest = Math.max(longest, run);
 
   let idx = scheduled.length - 1;
-  if (scheduled[scheduled.length - 1] === today && !status[status.length - 1]) {
+  if (scheduled[scheduled.length - 1] === today && !completed.has(today) && !skipped.has(today)) {
     idx -= 1;
   }
   let current = 0;
-  while (idx >= 0 && status[idx]) {
-    current += 1;
-    idx -= 1;
+  while (idx >= 0) {
+    const d = scheduled[idx];
+    if (completed.has(d)) {
+      current += 1;
+      idx -= 1;
+    } else if (skipped.has(d)) {
+      idx -= 1;
+    } else {
+      break;
+    }
   }
   return [current, longest];
+}
+
+/** 编辑记录的跳过语义归一化（纯函数，recordApi.update 与测试共用）：
+ *  - 显式 is_skipped:true → 跳过不变量（is_completed=false，调用方同时清空数值）
+ *  - 录入真实数值/完成状态，或显式 is_skipped:false → 真实记录，清除跳过
+ *  - 其余（仅改备注等）→ 跳过记录保持跳过且强制 is_completed=false（防 boolean 类型
+ *    重算把全 null 值翻成「完成」）；非跳过记录按合并后的值重算完成
+ *    （注：非跳过 boolean 全 null 记录遇 note-only 编辑会重算为 is_completed=true，
+ *    系修复指令前的既有行为，本轮按指令仅保护跳过记录，暂无 UI 路径产生该形态） */
+export function resolveRecordUpdate(
+  recordType: string,
+  targetValue: number | null,
+  patch: {
+    value_number?: number | null;
+    value_text?: string | null;
+    value_time?: string | null;
+    is_completed?: boolean;
+    is_skipped?: boolean;
+    note?: string | null; // 与数值无关，不参与判定
+  },
+  merged: { is_skipped?: boolean; value_number: number | null; value_text: string | null; value_time: string | null }
+): { is_completed: boolean; is_skipped: boolean } {
+  if (patch.is_skipped === true) return { is_completed: false, is_skipped: true };
+  const recordsValues =
+    patch.value_number != null ||
+    patch.value_text != null ||
+    patch.value_time != null ||
+    patch.is_completed !== undefined;
+  const isCompleted =
+    patch.is_completed ??
+    isRecordCompleted(recordType, {
+      target_value: targetValue,
+      value_number: merged.value_number,
+      value_text: merged.value_text,
+      value_time: merged.value_time,
+    });
+  if (patch.is_skipped !== undefined) return { is_completed: isCompleted, is_skipped: patch.is_skipped };
+  if (recordsValues) return { is_completed: isCompleted, is_skipped: false };
+  if (merged.is_skipped) return { is_completed: false, is_skipped: true };
+  return { is_completed: isCompleted, is_skipped: false };
 }
 
 /** Streaks measured in weeks for 'N times per week' habits. */
