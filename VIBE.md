@@ -1,7 +1,7 @@
 # VIBE 项目状态
 > 由 /vibe 维护；新会话跑 /vibe 自动续接
 
-- 当前阶段：验收（F-A/F-B/F-C 已实现，待用户最终验收）
+- 当前阶段：交付（v6 APK 已打包验证，待用户装机验收）
 - 项目目标（一句话）：HabitFlow（日常行为坚持记录软件）的界面美化 + 围绕「记录坚持、看见痕迹」主线的实用功能优化。
 - 验收标准：
   1. 现有习惯打卡/成就/日志功能无回归（浏览器全流程走查 + tsc --noEmit + vite build 通过）
@@ -25,4 +25,7 @@
   - [x] F-C 成就分享卡片：统计页分享按钮 → Canvas 品牌卡片 → 保存 PNG
   - [x] Icon 组件对未知图标名兜底渲染（修复 HMR 瞬态崩溃的健壮性加固）
 - 交接摘要：
-  - 2026-09-12：记账模块完整实现后又按用户决定整体移除（fe316f2 → revert a0b559b）；习惯侧优化 V1/V3/V4/V5/V7 已提交（7e6de2c）。dev 验收地址 http://localhost:5173/?demo=1（演示数据 seed 后会自动评估成就）。
+  - 2026-09-12：记账模块完整实现后又按用户决定整体移除（fe316f2 → revert a0b559b）；习惯侧优化 V1~V7 + F-A/F-B/F-C 全部完成。
+  - 2026-09-12 APK 交付：`HabitFlow-release-v6.apk`（versionCode 5 / versionName 1.4，3.35 MB），签名指纹 de94b020… 与历史版本一致可覆盖安装且保留数据；SHA-256 `3b32bd8ae5870475b34cc44beb876f24effdf6817b0d76c9d82397899c9becc1`。
+  - 打包环境重建记录：本机原 Android Studio/SDK 已不存在（环境变量为残留）；新装命令行 SDK 于 `D:\Android\Sdk`（cmdline-tools + platform 36 + build-tools 36.0.0）；`frontend/android/keystore.properties`（storePassword/keyPassword=habitflow123，keyAlias=habitflow，storeFile 相对 app 模块为 ../../../android/keystore/habitflow-release.keystore）与 `local.properties` 已重建，均被 gitignore 排除不入库。
+  - 注意：打包用 `gradlew assembleRelease` 需 `JAVA_HOME=D:\JDK`（系统 JAVA_HOME 指向已卸载的 Studio jbr，会污染 apksigner）。
