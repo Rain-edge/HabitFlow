@@ -5,6 +5,7 @@ import HabitIcon from "../components/HabitIcon";
 import Heatmap from "../components/Heatmap";
 import Icon from "../components/Icon";
 import type { IconName } from "../components/Icon";
+import ShareCard from "../components/ShareCard";
 import { toast } from "../components/Layout";
 import { StatCard } from "../components/ui";
 import type { HeatmapDay } from "../local/stats";
@@ -59,6 +60,7 @@ export default function Statistics() {
   const [trend, setTrend] = useState<Trend | null>(null);
   const [achievements, setAchievements] = useState<AchievementView[]>([]);
   const [heatmap, setHeatmap] = useState<HeatmapDay[]>([]);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const load = useCallback(async () => {
     const [o, t, a] = await Promise.all([
@@ -94,23 +96,26 @@ export default function Statistics() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         <h1 className="page-title">统计</h1>
-        <div className="flex flex-wrap gap-1">
-          {RANGES.map((r) => (
-            <button
-              key={r.key}
-              className={`rounded-md px-2.5 py-1 text-xs transition ${
-                range === r.key
-                  ? "bg-brand-500/10 font-medium text-brand-700 dark:text-brand-300"
-                  : "text-ink-2 hover:bg-line-2"
-              }`}
-              onClick={() => setRange(r.key)}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
+        <button className="icon-btn" onClick={() => setShareOpen(true)} aria-label="分享我的坚持" title="分享我的坚持">
+          <Icon name="share" className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {RANGES.map((r) => (
+          <button
+            key={r.key}
+            className={`rounded-md px-2.5 py-1 text-xs transition ${
+              range === r.key
+                ? "bg-brand-500/10 font-medium text-brand-700 dark:text-brand-300"
+                : "text-ink-2 hover:bg-line-2"
+            }`}
+            onClick={() => setRange(r.key)}
+          >
+            {r.label}
+          </button>
+        ))}
       </div>
 
       {/* Summary cards */}
@@ -285,6 +290,8 @@ export default function Statistics() {
           ))}
         </div>
       </section>
+
+      <ShareCard open={shareOpen} onClose={() => setShareOpen(false)} />
     </div>
   );
 }

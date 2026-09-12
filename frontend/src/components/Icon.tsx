@@ -6,7 +6,7 @@ import {
   CloudRain, ShieldCheck, Trophy, TrendingUp, Target, Wrench, Circle,
   ClipboardList, Sparkles, Medal, Crown, Dumbbell, Gem, CalendarCheck,
   CalendarDays, PartyPopper, Droplets, BookOpen, Utensils, Flower2,
-  PenLine, HeartPulse, Coffee, Music, AlarmClock, Footprints,
+  PenLine, HeartPulse, Coffee, Music, AlarmClock, Footprints, Share2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -22,7 +22,8 @@ export type IconName =
   | "party-popper"
   // habit icons (pickable when creating a habit)
   | "droplets" | "book-open" | "utensils" | "flower"
-  | "pen-line" | "heart-pulse" | "coffee" | "music" | "alarm-clock" | "footprints";
+  | "pen-line" | "heart-pulse" | "coffee" | "music" | "alarm-clock" | "footprints"
+  | "share";
 
 const ICONS: Record<IconName, LucideIcon> = {
   sun: Sun, moon: Moon, bell: Bell, plus: Plus, search: Search, check: Check,
@@ -40,6 +41,7 @@ const ICONS: Record<IconName, LucideIcon> = {
   droplets: Droplets, "book-open": BookOpen,
   utensils: Utensils, flower: Flower2, "pen-line": PenLine, "heart-pulse": HeartPulse,
   coffee: Coffee, music: Music, "alarm-clock": AlarmClock, footprints: Footprints,
+  share: Share2,
 };
 
 /** Set of every registered icon name — used to distinguish habit icons from legacy emoji. */
@@ -59,5 +61,15 @@ export default function Icon({
   strokeWidth?: number;
 }) {
   const C = ICONS[name];
+  if (!C) {
+    // Unknown name must never crash the app (e.g. stale data referencing a
+    // removed icon); fall back to a neutral circle and surface it in dev.
+    if (import.meta.env.DEV) {
+      (window as unknown as { __unknownIcons?: string[] }).__unknownIcons ??= [];
+      (window as unknown as { __unknownIcons: string[] }).__unknownIcons.push(name);
+    }
+    const Fallback = Circle;
+    return <Fallback className={className} strokeWidth={strokeWidth} aria-hidden="true" />;
+  }
   return <C className={className} strokeWidth={strokeWidth} aria-hidden="true" />;
 }
