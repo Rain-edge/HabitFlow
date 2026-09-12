@@ -80,8 +80,16 @@ export default function Dashboard() {
   const [pressingId, setPressingId] = useState<number | null>(null);
   const pressTimer = useRef<number | null>(null);
   const pressStart = useRef<{ x: number; y: number } | null>(null);
+  const cardEls = useRef(new Map<number, HTMLDivElement>());
+  const prevTops = useRef<Map<number, number> | null>(null);
 
   const load = useCallback(async () => {
+    // R-E: FLIP——先记当前卡片位置，数据刷新后由 effect 做位移过渡
+    const tops = new Map<number, number>();
+    cardEls.current.forEach((el, id) => {
+      if (el) tops.set(id, el.getBoundingClientRect().top);
+    });
+    prevTops.current = tops;
     const yesterday = addDays(todayISO(), -1);
     const [dash, habitList, weekData, yRecords] = await Promise.all([
       api.get<TodayDashboard>("/statistics/today"),
@@ -98,6 +106,29 @@ export default function Dashboard() {
   useEffect(() => {
     load().catch((e) => toast((e as Error).message, "error"));
   }, [load]);
+
+  /** R-E: FLIP 重排——打卡换位时从旧位置平滑滑到新位置（ease-soft），尊重系统减弱动态。 */
+  useEffect(() => {
+    const prev = prevTops.current;
+    prevTops.current = null;
+    if (!prev || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    cardEls.current.forEach((el, id) => {
+      const oldTop = prev.get(id);
+      if (oldTop == null) return;
+      const delta = oldTop - el.getBoundingClientRect().top;
+      if (Math.abs(delta) < 1) return;
+      el.style.transition = "none";
+      el.style.transform = `translateY(${delta}px)`;
+      requestAnimationFrame(() => {
+        el.style.transition = "transform 320ms cubic-bezier(0.25, 0.6, 0.35, 1)";
+        el.style.transform = "";
+        window.setTimeout(() => {
+          el.style.transition = "";
+          el.style.transform = "";
+        }, 360);
+      });
+    });
+  }, [data]);
 
   /** One-tap checkin for boolean habits. */
   const quickCheckin = async (item: TodayItem) => {
@@ -379,6 +410,10 @@ export default function Dashboard() {
             return (
               <div
                 key={item.habit_id}
+                ref={(el) => {
+                  if (el) cardEls.current.set(item.habit_id, el);
+                  else cardEls.current.delete(item.habit_id);
+                }}
                 {...cardPressProps(item)}
                 className={`card flex select-none items-center gap-3.5 p-4 transition-transform duration-150 ease-soft ${
                   pressingId === item.habit_id ? "scale-[0.985] opacity-90" : ""
