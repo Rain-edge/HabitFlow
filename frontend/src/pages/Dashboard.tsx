@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import HabitIcon from "../components/HabitIcon";
 import Icon from "../components/Icon";
+import Motivation from "../components/Motivation";
 import RecordDialog from "../components/RecordDialog";
 import { toast } from "../components/Layout";
 import { EmptyState, PageLoading, ProgressBar, SectionTitle, StatCard } from "../components/ui";
@@ -153,6 +154,7 @@ export default function Dashboard() {
                 </span>
               )}
             </div>
+            <Motivation date={data.date} />
           </div>
           <CompletionRing rate={data.completion_rate} done={data.done_count} total={data.scheduled_count} />
         </div>
