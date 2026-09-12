@@ -43,3 +43,6 @@ redisdata/
 # Release signing (never commit)
 frontend/android/keystore.properties
 frontend/android/keystore/
+
+# 发布 APK 不入库（历史 v4-v6 已清理，v7 起仅存工作目录）
+*.apk
