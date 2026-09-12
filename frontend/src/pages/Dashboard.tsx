@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
+import Celebration from "../components/Celebration";
 import CardMenu, { type CardMenuItem } from "../components/CardMenu";
 import HabitForm from "../components/HabitForm";
 import HabitIcon from "../components/HabitIcon";
@@ -78,6 +79,7 @@ export default function Dashboard() {
   const [quickInput, setQuickInput] = useState<{ id: number; value: string } | null>(null);
   const [savingId, setSavingId] = useState<number | null>(null);
   const [pressingId, setPressingId] = useState<number | null>(null);
+  const [celebrating, setCelebrating] = useState(false);
   const pressTimer = useRef<number | null>(null);
   const pressStart = useRef<{ x: number; y: number } | null>(null);
   const cardEls = useRef(new Map<number, HTMLDivElement>());
@@ -106,6 +108,22 @@ export default function Dashboard() {
   useEffect(() => {
     load().catch((e) => toast((e as Error).message, "error"));
   }, [load]);
+
+  /** R-B: 当日全部完成触发一次全屏庆祝；localStorage 记已庆祝日期，同日刷新不重复。 */
+  useEffect(() => {
+    if (!data) return;
+    const key = `hf-celebrated-${data.date}`;
+    if (data.scheduled_count > 0 && data.done_count >= data.scheduled_count && localStorage.getItem(key) !== data.date) {
+      localStorage.setItem(key, data.date);
+      setCelebrating(true);
+    }
+  }, [data]);
+
+  useEffect(() => {
+    if (!celebrating) return;
+    const t = window.setTimeout(() => setCelebrating(false), 3200);
+    return () => clearTimeout(t);
+  }, [celebrating]);
 
   /** R-E: FLIP 重排——打卡换位时从旧位置平滑滑到新位置（ease-soft），尊重系统减弱动态。 */
   useEffect(() => {
@@ -618,6 +636,8 @@ export default function Dashboard() {
       {menu && (
         <CardMenu x={menu.x} y={menu.y} items={menuItemsFor(menu.item, menu.habit)} onClose={() => setMenu(null)} />
       )}
+
+      {celebrating && <Celebration />}
     </div>
   );
 }
