@@ -7,6 +7,7 @@ import Icon from "../components/Icon";
 import { toast } from "../components/Layout";
 import { EmptyState } from "../components/ui";
 import type { Habit } from "../types";
+import { scheduleLabel } from "../utils/schedule";
 
 const TYPE_LABEL: Record<string, string> = {
   boolean: "完成",
@@ -17,13 +18,6 @@ const TYPE_LABEL: Record<string, string> = {
   text: "文字",
   time: "时间",
 };
-
-function scheduleLabel(h: Habit): string {
-  if (h.schedule_type === "daily") return "每天";
-  if (h.schedule_type === "weekly_count") return `每周 ${h.weekly_target} 次`;
-  const names = ["一", "二", "三", "四", "五", "六", "日"];
-  return `每周${(h.weekly_days || []).map((d) => names[d]).join("、")}`;
-}
 
 export default function Habits() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -94,7 +88,7 @@ export default function Habits() {
       <div className="flex flex-wrap items-center gap-2">
         <input
           className="input min-w-0 flex-1 sm:max-w-xs"
-          placeholder="搜索习惯名称、描述…"
+          placeholder="搜索习惯…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           aria-label="搜索习惯"

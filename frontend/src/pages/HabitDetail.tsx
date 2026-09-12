@@ -9,6 +9,7 @@ import RecordDialog from "../components/RecordDialog";
 import { EmptyState, StatCard } from "../components/ui";
 import type { Habit, HabitStats } from "../types";
 import { monthGrid, parseISO, shortCN, todayISO } from "../utils/date";
+import { scheduleLabel } from "../utils/schedule";
 
 export default function HabitDetail() {
   const { id } = useParams();
@@ -55,9 +56,7 @@ export default function HabitDetail() {
         <div className="min-w-0 flex-1">
           <h1 className="page-title truncate">{habit.name}</h1>
           <p className="truncate text-xs text-ink-3">
-            {habit.schedule_type === "daily" && "每天"}
-            {habit.schedule_type === "weekly_count" && `每周 ${habit.weekly_target} 次`}
-            {habit.schedule_type === "weekly_days" && `每周 ${(habit.weekly_days || []).map((d) => "一二三四五六日"[d]).join("、")}`}
+            {scheduleLabel(habit)}
             {habit.target_value != null && ` · 目标 ${habit.target_value} ${habit.unit || ""}`}
           </p>
         </div>
