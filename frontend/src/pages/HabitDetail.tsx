@@ -11,6 +11,11 @@ import type { Habit, HabitStats } from "../types";
 import { monthGrid, parseISO, shortCN, todayISO } from "../utils/date";
 import { scheduleLabel } from "../utils/schedule";
 
+function monthLabelCN(month: string): string {
+  const [y, m] = month.split("-").map(Number);
+  return `${y}年${m}月`;
+}
+
 export default function HabitDetail() {
   const { id } = useParams();
   const [habit, setHabit] = useState<Habit | null>(null);
@@ -51,6 +56,19 @@ export default function HabitDetail() {
   const yMax = Math.max(...trendValues, ...(target != null ? [target] : []));
   const yPad = yMax - yMin > 0 ? (yMax - yMin) * 0.15 : Math.max(Math.abs(yMax) * 0.1, 1);
   const yDomain: [number, number] = [yMin - yPad, yMax + yPad];
+
+  // 历史记录按月分组（最近 60 条，最新月份在前）；相邻同月归并，不依赖入参有序
+  const historyGroups = (() => {
+    const recent = [...stats.values].reverse().slice(0, 60);
+    const groups: { month: string; items: typeof recent }[] = [];
+    for (const v of recent) {
+      const month = v.date.slice(0, 7);
+      const last = groups[groups.length - 1];
+      if (last && last.month === month) last.items.push(v);
+      else groups.push({ month, items: [v] });
+    }
+    return groups;
+  })();
 
   return (
     <div className="space-y-6">
@@ -256,37 +274,46 @@ export default function HabitDetail() {
         {stats.values.length === 0 && (
           <EmptyState icon={<Icon name="clipboard" className="h-6 w-6" />} title="还没有记录" desc="开始记录后，这里会显示完整的历史。" />
         )}
-        <div className="divide-y divide-line-2">
-          {[...stats.values].reverse().slice(0, 60).map((v) => (
-            <button
-              key={v.date}
-              className="flex w-full items-center justify-between py-2.5 text-left text-sm hover:bg-line-2"
-              onClick={() => {
-                setEditingRecord(v);
-                setDialogDate(v.date);
-              }}
-            >
-              <span className="font-display text-ink-2">{v.date}</span>
-              <span className="flex items-center gap-2 text-xs">
-                {v.is_backfilled && (
-                  <span className="flex items-center gap-1 rounded bg-warning-500/10 px-1.5 py-0.5 text-warning-600 dark:text-warning-500">
-                    <Icon name="wrench" className="h-3 w-3" />
-                    补签
-                  </span>
-                )}
-                <span className={`flex items-center gap-1 ${v.is_completed ? "text-success-600 dark:text-success-500" : "text-ink-3"}`}>
-                  {v.is_completed ? (
-                    <Icon name="check" className="h-3.5 w-3.5" strokeWidth={2.4} />
-                  ) : (
-                    <Icon name="circle" className="h-3.5 w-3.5" strokeWidth={2} />
-                  )}
-                  {v.value_number != null && ` ${v.value_number}${habit.unit ? ` ${habit.unit}` : ""}`}
-                  {v.value_text != null && ` ${v.value_text}`}
-                  {v.value_time != null && ` ${v.value_time}`}
-                </span>
-              </span>
-              {v.note && <span className="mt-0.5 block truncate text-xs text-ink-3">“{v.note}”</span>}
-            </button>
+        <div>
+          {historyGroups.map((g) => (
+            <div key={g.month}>
+              <div className="mb-1 mt-3 border-b border-line-2 pb-1 text-xs font-medium text-ink-3 first:mt-0">
+                {monthLabelCN(g.month)}
+              </div>
+              <div className="divide-y divide-line-2">
+                {g.items.map((v) => (
+                  <button
+                    key={v.date}
+                    className="flex w-full items-center justify-between py-2.5 text-left text-sm hover:bg-line-2"
+                    onClick={() => {
+                      setEditingRecord(v);
+                      setDialogDate(v.date);
+                    }}
+                  >
+                    <span className="font-display text-ink-2">{v.date}</span>
+                    <span className="flex items-center gap-2 text-xs">
+                      {v.is_backfilled && (
+                        <span className="flex items-center gap-1 rounded bg-warning-500/10 px-1.5 py-0.5 text-warning-600 dark:text-warning-500">
+                          <Icon name="wrench" className="h-3 w-3" />
+                          补签
+                        </span>
+                      )}
+                      <span className={`flex items-center gap-1 ${v.is_completed ? "text-success-600 dark:text-success-500" : "text-ink-3"}`}>
+                        {v.is_completed ? (
+                          <Icon name="check" className="h-3.5 w-3.5" strokeWidth={2.4} />
+                        ) : (
+                          <Icon name="circle" className="h-3.5 w-3.5" strokeWidth={2} />
+                        )}
+                        {v.value_number != null && ` ${v.value_number}${habit.unit ? ` ${habit.unit}` : ""}`}
+                        {v.value_text != null && ` ${v.value_text}`}
+                        {v.value_time != null && ` ${v.value_time}`}
+                      </span>
+                    </span>
+                    {v.note && <span className="mt-0.5 block truncate text-xs text-ink-3">“{v.note}”</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </section>
