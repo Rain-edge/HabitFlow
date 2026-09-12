@@ -8,7 +8,7 @@ import RecordDialog from "../components/RecordDialog";
 import { toast } from "../components/Layout";
 import { EmptyState, PageLoading, ProgressBar, SectionTitle, StatCard } from "../components/ui";
 import type { Overview } from "../local/stats";
-import type { Habit, TodayDashboard, TodayItem } from "../types";
+import type { Habit, HabitRecord, TodayDashboard, TodayItem } from "../types";
 import { formatCN, todayISO, weekdayCN } from "../utils/date";
 
 function CompletionRing({ rate, done, total }: { rate: number; done: number; total: number }) {
@@ -96,22 +96,30 @@ export default function Dashboard() {
     }
   };
 
-  /** Quick numeric input save (number / duration / rating). */
+  /** Quick numeric input save (number / duration / rating).
+   *  失焦自动保存不丢值（R-G）；无效输入保留输入框；当日已有记录走 PUT 原位续记。 */
   const quickSave = async (item: TodayItem, raw: string) => {
+    if (raw.trim() === "") {
+      setQuickInput(null);
+      return;
+    }
+    const valueNumber = raw.includes(".") ? parseFloat(raw) : parseInt(raw, 10);
+    if (Number.isNaN(valueNumber)) {
+      toast("请输入有效数字", "error");
+      return;
+    }
     setQuickInput(null);
-    if (raw.trim() === "") return;
     setSavingId(item.habit_id);
     try {
-      const valueNumber = raw.includes(".") ? parseFloat(raw) : parseInt(raw, 10);
-      if (Number.isNaN(valueNumber)) {
-        toast("请输入有效数字", "error");
-        return;
+      if (item.record && !item.record.is_skipped) {
+        await api.put(`/records/${item.record.id}`, { value_number: valueNumber });
+      } else {
+        await api.post("/records", {
+          habit_id: item.habit_id,
+          record_date: todayISO(),
+          value_number: valueNumber,
+        });
       }
-      await api.post("/records", {
-        habit_id: item.habit_id,
-        record_date: todayISO(),
-        value_number: valueNumber,
-      });
       await load();
       toast("已记录", "success");
     } catch (e) {
@@ -119,6 +127,21 @@ export default function Dashboard() {
     } finally {
       setSavingId(null);
     }
+  };
+
+  /** R-G: 打开快速输入时预填——优先今日已有值，否则取该习惯上一次数值。 */
+  const openQuickInput = async (item: TodayItem) => {
+    let prefill = item.record?.value_number != null ? String(item.record.value_number) : "";
+    if (!prefill) {
+      try {
+        const recent = await api.get<HabitRecord[]>(`/records?habit_id=${item.habit_id}&limit=3`);
+        const last = recent.find((r) => !r.is_skipped && r.value_number != null);
+        if (last?.value_number != null) prefill = String(last.value_number);
+      } catch {
+        // 预填失败不阻塞输入
+      }
+    }
+    setQuickInput({ id: item.habit_id, value: prefill });
   };
 
   if (!data) return <PageLoading />;
@@ -296,16 +319,20 @@ export default function Dashboard() {
                         placeholder={item.unit || "数值"}
                         value={quickInput.value}
                         onChange={(e) => setQuickInput({ id: item.habit_id, value: e.target.value })}
-                        onBlur={() => setQuickInput(null)}
+                        onBlur={() => void quickSave(item, quickInput.value)}
                       />
-                      <button className="btn-primary btn-sm" type="submit">
+                      <button
+                        className="btn-primary btn-sm"
+                        type="submit"
+                        onMouseDown={(e) => e.preventDefault()}
+                      >
                         存
                       </button>
                     </form>
                   ) : numeric && !item.done_today ? (
                     <button
                       className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-300"
-                      onClick={() => setQuickInput({ id: item.habit_id, value: "" })}
+                      onClick={() => void openQuickInput(item)}
                     >
                       快速记录
                     </button>
