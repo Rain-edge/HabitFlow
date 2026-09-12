@@ -94,30 +94,30 @@ export default function Journal() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <h1 className="page-title truncate">{formatCN(date)}</h1>
-          <p className="truncate text-xs text-ink-3">{weekdayCN(date)} · 每日生活日志</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <button className="icon-btn" onClick={() => setDate(addDays(date, -1))} aria-label="前一天">
-            <Icon name="prev" className="h-4 w-4" />
-          </button>
-          <input
-            type="date"
-            className="input w-36"
-            value={date}
-            max={today}
-            onChange={(e) => e.target.value && setDate(e.target.value)}
-          />
-          <button
-            className="icon-btn"
-            disabled={date >= today}
-            onClick={() => setDate(addDays(date, 1))}
-            aria-label="后一天"
-          >
-            <Icon name="next" className="h-4 w-4" />
-          </button>
+      <div className="space-y-2">
+        <h1 className="page-title">{formatCN(date)}</h1>
+        <div className="flex items-center justify-between gap-1">
+          <p className="min-w-0 truncate text-xs text-ink-3">{weekdayCN(date)} · 每日生活日志</p>
+          <div className="flex shrink-0 items-center gap-1">
+            <button className="icon-btn" onClick={() => setDate(addDays(date, -1))} aria-label="前一天">
+              <Icon name="prev" className="h-4 w-4" />
+            </button>
+            <input
+              type="date"
+              className="input w-[136px]"
+              value={date}
+              max={today}
+              onChange={(e) => e.target.value && setDate(e.target.value)}
+            />
+            <button
+              className="icon-btn"
+              disabled={date >= today}
+              onClick={() => setDate(addDays(date, 1))}
+              aria-label="后一天"
+            >
+              <Icon name="next" className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -156,14 +156,14 @@ export default function Journal() {
         <div>
           <label className="label">今日一句话 / 文字记录</label>
           <textarea
-            className="input min-h-28"
+            className="input min-h-28 resize-none"
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="今天整体状态不错，运动也坚持下来了。"
           />
         </div>
-        <div className="flex justify-end">
-          <button className="btn-primary" onClick={save} disabled={saving}>
+        <div className="flex">
+          <button className="btn btn-lg btn-primary w-full" onClick={save} disabled={saving}>
             {saving ? "保存中…" : entry?.has_entry ? "更新日志" : "保存日志"}
           </button>
         </div>
