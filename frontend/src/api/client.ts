@@ -10,6 +10,7 @@ import {
   overview as localOverview,
   todayDashboard,
   trend as localTrend,
+  yearHeatmap,
 } from "../local/stats";
 
 export function getToken(): string | null {
@@ -51,6 +52,9 @@ async function handleGet<T>(path: string): Promise<T> {
   }
   if (base === "/statistics/calendar") {
     return localCalendar(Number(query.get("year")), Number(query.get("month"))) as unknown as T;
+  }
+  if (base === "/statistics/heatmap") {
+    return yearHeatmap(Number(query.get("days") || 364)) as unknown as T;
   }
 
   // /journal/{date}

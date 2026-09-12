@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "../api/client";
 import HabitIcon from "../components/HabitIcon";
+import Heatmap from "../components/Heatmap";
 import Icon from "../components/Icon";
 import type { IconName } from "../components/Icon";
 import { toast } from "../components/Layout";
 import { StatCard } from "../components/ui";
+import type { HeatmapDay } from "../local/stats";
 import type { AchievementView } from "../types";
 import { shortCN } from "../utils/date";
 
@@ -56,6 +58,7 @@ export default function Statistics() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [trend, setTrend] = useState<Trend | null>(null);
   const [achievements, setAchievements] = useState<AchievementView[]>([]);
+  const [heatmap, setHeatmap] = useState<HeatmapDay[]>([]);
 
   const load = useCallback(async () => {
     const [o, t, a] = await Promise.all([
@@ -67,6 +70,14 @@ export default function Statistics() {
     setTrend(t);
     setAchievements(a);
   }, [range]);
+
+  // The year heatmap doesn't depend on the selected range; load once.
+  useEffect(() => {
+    api
+      .get<HeatmapDay[]>("/statistics/heatmap")
+      .then(setHeatmap)
+      .catch(() => setHeatmap([]));
+  }, []);
 
   useEffect(() => {
     load().catch((e) => toast((e as Error).message, "error"));
@@ -162,6 +173,14 @@ export default function Statistics() {
           </div>
         </div>
       </div>
+
+      {/* Year heatmap — the persistence trace at a glance */}
+      {heatmap.length > 0 && (
+        <section className="card card-pad">
+          <h2 className="section-title mb-3">坚持热力图 · 过去一年</h2>
+          <Heatmap days={heatmap} />
+        </section>
+      )}
 
       {/* Daily trend */}
       {trendData && trendData.length > 0 && (

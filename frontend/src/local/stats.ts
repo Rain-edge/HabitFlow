@@ -701,3 +701,34 @@ export async function evaluateAchievements(): Promise<string[]> {
   }
   return newly;
 }
+
+// ---------- year heatmap ----------
+
+export interface HeatmapDay {
+  date: string;
+  expected: number;
+  done: number;
+  /** 0-100; null = nothing scheduled that day */
+  rate: number | null;
+}
+
+/** Daily completion rate for the last `days` days (inclusive of today), oldest first. */
+export async function yearHeatmap(days = 364, today = todayISO()): Promise<HeatmapDay[]> {
+  const allHabits = await localDB.getAll<StoredHabit>("habits");
+  const habits = allHabits.filter((h) => !h.deleted_at && h.is_active && h.counts_for_daily);
+  const completedMap = await allCompletedDatesMap(habits.map((h) => h.id));
+  const base = toDate(today);
+  const out: HeatmapDay[] = [];
+  for (let i = days; i >= 0; i--) {
+    const d = toISO(new Date(base.getFullYear(), base.getMonth(), base.getDate() - i));
+    let expected = 0;
+    let done = 0;
+    for (const habit of habits) {
+      if (!isScheduledOn(habit, d)) continue;
+      expected += 1;
+      if (completedMap.get(habit.id)?.has(d)) done += 1;
+    }
+    out.push({ date: d, expected, done, rate: expected === 0 ? null : Math.round((done / expected) * 100) });
+  }
+  return out;
+}
