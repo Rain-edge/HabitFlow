@@ -1,6 +1,6 @@
 // Local "API" facade — replaces backend/api/client.ts.
 // All pages keep their existing call shape (api.get/post/put/delete) but now hit IndexedDB.
-import { localDB, StoredHabit, StoredRecord, StoredJournal, StoredNotificationSettings, StoredInboxItem, StoredTransaction, StoredCategory, TxType } from "./db";
+import { localDB, StoredHabit, StoredRecord, StoredJournal, StoredNotificationSettings, StoredInboxItem } from "./db";
 import { evaluateAchievements, todayISO } from "./stats";
 import { isRecordCompleted } from "./habitLogic";
 
@@ -14,7 +14,7 @@ export class ApiError extends Error {
   }
 }
 
-function notFound(detail = "未找到"): never {
+function notFound(detail = "未找到") {
   throw new ApiError(404, detail);
 }
 
@@ -193,156 +193,6 @@ export const journalApi = {
   },
 };
 
-// ---------- bookkeeping: categories ----------
-
-// Palette mirrors HabitForm's low-saturation colors.
-const DEFAULT_CATEGORIES: Omit<StoredCategory, "id">[] = [
-  { name: "餐饮", type: "expense", icon: "utensils", color: "#E89B5B", sort: 1, is_custom: false, deleted_at: null },
-  { name: "交通", type: "expense", icon: "bus", color: "#5B8DEF", sort: 2, is_custom: false, deleted_at: null },
-  { name: "购物", type: "expense", icon: "shopping-cart", color: "#8B7CF6", sort: 3, is_custom: false, deleted_at: null },
-  { name: "娱乐", type: "expense", icon: "gamepad", color: "#D98BA0", sort: 4, is_custom: false, deleted_at: null },
-  { name: "居住", type: "expense", icon: "home", color: "#18A396", sort: 5, is_custom: false, deleted_at: null },
-  { name: "医疗", type: "expense", icon: "pill", color: "#4FA8C9", sort: 6, is_custom: false, deleted_at: null },
-  { name: "教育", type: "expense", icon: "graduation-cap", color: "#6FA88F", sort: 7, is_custom: false, deleted_at: null },
-  { name: "其他", type: "expense", icon: "more", color: "#7C8FA6", sort: 8, is_custom: false, deleted_at: null },
-  { name: "工资", type: "income", icon: "wallet", color: "#2FA36B", sort: 1, is_custom: false, deleted_at: null },
-  { name: "兼职", type: "income", icon: "briefcase", color: "#4FA8C9", sort: 2, is_custom: false, deleted_at: null },
-  { name: "红包", type: "income", icon: "gift", color: "#E89B5B", sort: 3, is_custom: false, deleted_at: null },
-  { name: "理财", type: "income", icon: "trending-up", color: "#8B7CF6", sort: 4, is_custom: false, deleted_at: null },
-  { name: "其他", type: "income", icon: "more", color: "#7C8FA6", sort: 5, is_custom: false, deleted_at: null },
-];
-
-/** Seed the preset categories once, on first access. */
-async function ensureCategories(): Promise<void> {
-  const all = await localDB.getAll<StoredCategory>("categories");
-  if (all.length > 0) return;
-  let id = 1;
-  for (const c of DEFAULT_CATEGORIES) {
-    await localDB.put<StoredCategory>("categories", { ...c, id: id++ });
-  }
-}
-
-export const categoryApi = {
-  async list(type?: TxType): Promise<StoredCategory[]> {
-    await ensureCategories();
-    const all = await localDB.getAll<StoredCategory>("categories");
-    return all
-      .filter((c) => c.deleted_at == null && (!type || c.type === type))
-      .sort((a, b) => a.type.localeCompare(b.type) || a.sort - b.sort || a.id - b.id);
-  },
-  async create(data: { name: string; type: TxType; icon: string; color: string }): Promise<StoredCategory> {
-    const all = await localDB.getAll<StoredCategory>("categories");
-    const sameType = all.filter((c) => c.type === data.type && c.deleted_at == null);
-    const category: StoredCategory = {
-      ...data,
-      name: data.name.trim(),
-      id: await localDB.nextId("categories"),
-      sort: sameType.length + 1,
-      is_custom: true,
-      deleted_at: null,
-    };
-    await localDB.put("categories", category);
-    return category;
-  },
-  async update(id: number, patch: Partial<Pick<StoredCategory, "name" | "icon" | "color">>): Promise<StoredCategory> {
-    const c = await localDB.get<StoredCategory>("categories", id);
-    if (!c || c.deleted_at != null) notFound("分类不存在");
-    const updated: StoredCategory = {
-      ...c,
-      name: patch.name?.trim() ?? c.name,
-      icon: patch.icon ?? c.icon,
-      color: patch.color ?? c.color,
-      id,
-    };
-    await localDB.put("categories", updated);
-    return updated;
-  },
-  async remove(id: number): Promise<void> {
-    const c = await localDB.get<StoredCategory>("categories", id);
-    if (!c) notFound("分类不存在");
-    c.deleted_at = new Date().toISOString();
-    await localDB.put("categories", c);
-  },
-};
-
-// ---------- bookkeeping: transactions ----------
-
-export interface TransactionInput {
-  type: TxType;
-  amount: number; // cents (integer) — UI converts from yuan input
-  category_id: number;
-  note?: string | null;
-  tx_date: string; // YYYY-MM-DD
-}
-
-async function categoryById(id: number): Promise<StoredCategory> {
-  const c = await localDB.get<StoredCategory>("categories", id);
-  if (!c || c.deleted_at != null) notFound("分类不存在");
-  return c as StoredCategory;
-}
-
-export const transactionApi = {
-  /** List entries, newest first. month filters as "YYYY-MM". */
-  async list(params: { month?: string } = {}): Promise<StoredTransaction[]> {
-    const all = await localDB.getAll<StoredTransaction>("transactions");
-    return all
-      .filter((t) => t.deleted_at == null && (!params.month || t.tx_date.startsWith(params.month)))
-      .sort((a, b) => b.tx_date.localeCompare(a.tx_date) || b.id - a.id);
-  },
-  async get(id: number): Promise<StoredTransaction> {
-    const t = await localDB.get<StoredTransaction>("transactions", id);
-    if (!t || t.deleted_at != null) notFound("记录不存在");
-    return t as StoredTransaction;
-  },
-  async create(input: TransactionInput): Promise<StoredTransaction> {
-    if (!Number.isInteger(input.amount) || input.amount <= 0) {
-      throw new ApiError(400, "金额无效");
-    }
-    await categoryById(input.category_id);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.tx_date)) {
-      throw new ApiError(400, "日期无效");
-    }
-    const now = new Date().toISOString();
-    const tx: StoredTransaction = {
-      id: await localDB.nextId("transactions"),
-      type: input.type,
-      amount: input.amount,
-      category_id: input.category_id,
-      note: input.note?.trim() || null,
-      tx_date: input.tx_date,
-      created_at: now,
-      updated_at: now,
-      deleted_at: null,
-    };
-    await localDB.put("transactions", tx);
-    return tx;
-  },
-  async update(id: number, patch: Partial<TransactionInput>): Promise<StoredTransaction> {
-    const t = await transactionApi.get(id);
-    const merged = { ...t, ...patch, id };
-    if (!Number.isInteger(merged.amount) || merged.amount <= 0) {
-      throw new ApiError(400, "金额无效");
-    }
-    if (merged.type !== "expense" && merged.type !== "income") {
-      throw new ApiError(400, "类型无效");
-    }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(merged.tx_date)) {
-      throw new ApiError(400, "日期无效");
-    }
-    if (patch.category_id !== undefined) await categoryById(patch.category_id);
-    merged.note = merged.note?.trim() || null;
-    merged.updated_at = new Date().toISOString();
-    await localDB.put("transactions", merged);
-    return merged;
-  },
-  async remove(id: number): Promise<void> {
-    const t = await transactionApi.get(id);
-    t.deleted_at = new Date().toISOString();
-    t.updated_at = new Date().toISOString();
-    await localDB.put("transactions", t);
-  },
-};
-
 // ---------- notifications settings ----------
 
 const SETTINGS_KEY = "default";
@@ -433,15 +283,11 @@ export function exportData(kind: "json" | "csv") {
     const habits = await localDB.getAll<StoredHabit>("habits");
     const records = (await localDB.getAll<StoredRecord>("records")).filter((r) => r.deleted_at == null);
     const journals = await localDB.getAll<StoredJournal>("journal");
-    const transactions = (await localDB.getAll<StoredTransaction>("transactions")).filter((t) => t.deleted_at == null);
-    const categories = await localDB.getAll<StoredCategory>("categories");
     const data = {
       exported_at: new Date().toISOString(),
       habits,
       records,
       journals,
-      transactions,
-      categories,
       statistics: { note: "本地模式：统计可从历史数据重算" },
     };
 
@@ -463,18 +309,6 @@ export function exportData(kind: "json" | "csv") {
         rows.push(Object.keys(records[0]));
         for (const r of records) rows.push(Object.values(r).map((v) => String(v)));
       }
-      rows.push([]);
-      rows.push(["== transactions =="]);
-      if (transactions.length) {
-        rows.push(Object.keys(transactions[0]));
-        for (const t of transactions) rows.push(Object.values(t).map((v) => String(v)));
-      }
-      rows.push([]);
-      rows.push(["== categories =="]);
-      if (categories.length) {
-        rows.push(Object.keys(categories[0]));
-        for (const c of categories) rows.push(Object.values(c).map((v) => String(v)));
-      }
       content = "\ufeff" + rows.map((r) => r.join(",")).join("\n");
       mime = "text/csv;charset=utf-8";
     }
@@ -495,8 +329,6 @@ export interface ImportResult {
   habits: number;
   records: number;
   journals: number;
-  transactions: number;
-  categories: number;
   skipped: number;
 }
 
@@ -513,12 +345,6 @@ const RECORD_KEYS: (keyof StoredRecord)[] = [
 const JOURNAL_KEYS: (keyof StoredJournal)[] = [
   "journal_date", "mood", "energy", "overall", "stress", "text", "updated_at",
 ];
-const TRANSACTION_KEYS: (keyof StoredTransaction)[] = [
-  "id", "type", "amount", "category_id", "note", "tx_date", "created_at", "updated_at", "deleted_at",
-];
-const CATEGORY_KEYS: (keyof StoredCategory)[] = [
-  "id", "name", "type", "icon", "color", "sort", "is_custom", "deleted_at",
-];
 
 /** Import a JSON export file. Adds new records; skips conflicting ids. Never wipes existing data. */
 export async function importData(raw: string): Promise<ImportResult> {
@@ -533,9 +359,7 @@ export async function importData(raw: string): Promise<ImportResult> {
   const habitRows = Array.isArray(obj.habits) ? (obj.habits as Record<string, unknown>[]) : [];
   const recordRows = Array.isArray(obj.records) ? (obj.records as Record<string, unknown>[]) : [];
   const journalRows = Array.isArray(obj.journals) ? (obj.journals as Record<string, unknown>[]) : [];
-  const txRows = Array.isArray(obj.transactions) ? (obj.transactions as Record<string, unknown>[]) : [];
-  const catRows = Array.isArray(obj.categories) ? (obj.categories as Record<string, unknown>[]) : [];
-  if (!habitRows.length && !recordRows.length && !journalRows.length && !txRows.length && !catRows.length) {
+  if (!habitRows.length && !recordRows.length && !journalRows.length) {
     throw new ApiError(400, "文件中没有可导入的数据");
   }
 
@@ -553,26 +377,6 @@ export async function importData(raw: string): Promise<ImportResult> {
   };
 
   let skipped = 0;
-
-  // categories: merge by id first (transactions reference them)
-  const existingCategoryIds = new Set((await localDB.getAll<StoredCategory>("categories")).map((c) => c.id));
-  let categoriesAdded = 0;
-  for (const row of catRows) {
-    const id = Number(row.id);
-    if (!Number.isInteger(id) || id <= 0 || existingCategoryIds.has(id)) {
-      skipped += 1;
-      continue;
-    }
-    const category = sanitize<StoredCategory>(row, CATEGORY_KEYS, "category") as StoredCategory;
-    category.id = id;
-    if (!category.name || (category.type !== "expense" && category.type !== "income")) {
-      skipped += 1;
-      continue;
-    }
-    await localDB.put<StoredCategory>("categories", category);
-    existingCategoryIds.add(id);
-    categoriesAdded += 1;
-  }
 
   // habits: merge by id (keep existing on conflict)
   const existingHabitIds = new Set((await localDB.getAll<StoredHabit>("habits")).map((h) => h.id));
@@ -630,32 +434,7 @@ export async function importData(raw: string): Promise<ImportResult> {
     existingJournalDates.add(d);
   }
 
-  // transactions: merge by id
-  const existingTxIds = new Set((await localDB.getAll<StoredTransaction>("transactions")).map((t) => t.id));
-  let txAdded = 0;
-  for (const row of txRows) {
-    const id = Number(row.id);
-    if (!Number.isInteger(id) || id <= 0 || existingTxIds.has(id)) {
-      skipped += 1;
-      continue;
-    }
-    const tx = sanitize<StoredTransaction>(row, TRANSACTION_KEYS, "transaction") as StoredTransaction;
-    tx.id = id;
-    if (
-      (tx.type !== "expense" && tx.type !== "income") ||
-      !Number.isInteger(tx.amount) ||
-      tx.amount <= 0 ||
-      !/^\d{4}-\d{2}-\d{2}$/.test(tx.tx_date || "")
-    ) {
-      skipped += 1;
-      continue;
-    }
-    await localDB.put<StoredTransaction>("transactions", tx);
-    existingTxIds.add(id);
-    txAdded += 1;
-  }
-
-  return { habits: habitsAdded, records: recordsAdded, journals: journalsAdded, transactions: txAdded, categories: categoriesAdded, skipped };
+  return { habits: habitsAdded, records: recordsAdded, journals: journalsAdded, skipped };
 }
 
 // ---------- local notification generation ----------

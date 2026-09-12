@@ -1,7 +1,7 @@
 // Local API adapter — keeps the exact call shape pages already use:
 //   api.get<T>("/habits"), api.post("/records", {...}), api.put(...), api.delete(...)
 // but routes everything to IndexedDB via the local facade.
-import { habitApi, recordApi, journalApi, notificationApi, userApi, categoryApi, transactionApi, exportData, importData, generateLocalNotifications, ApiError } from "../local/api";
+import { habitApi, recordApi, journalApi, notificationApi, userApi, exportData, importData, generateLocalNotifications, ApiError } from "../local/api";
 import {
   calendar as localCalendar,
   evaluateAchievements,
@@ -52,12 +52,6 @@ async function handleGet<T>(path: string): Promise<T> {
   if (base === "/statistics/calendar") {
     return localCalendar(Number(query.get("year")), Number(query.get("month"))) as unknown as T;
   }
-  if (base === "/categories") {
-    return categoryApi.list((query.get("type") as "expense" | "income") || undefined) as unknown as T;
-  }
-  if (base === "/transactions") {
-    return transactionApi.list({ month: query.get("month") || undefined }) as unknown as T;
-  }
 
   // /journal/{date}
   const jm = base.match(/^\/journal\/(\d{4}-\d{2}-\d{2})$/);
@@ -102,9 +96,6 @@ async function handlePost<T>(path: string, body?: unknown): Promise<T> {
   const rm = base.match(/^\/habits\/(\d+)\/restore$/);
   if (rm) return habitApi.restore(Number(rm[1])) as unknown as T;
 
-  if (base === "/categories") return categoryApi.create(body as never) as unknown as T;
-  if (base === "/transactions") return transactionApi.create(body as never) as unknown as T;
-
   throw new ApiError(404, `未找到接口 ${path}`);
 }
 
@@ -123,12 +114,6 @@ async function handlePut<T>(path: string, body?: unknown): Promise<T> {
   const rm = base.match(/^\/records\/(\d+)$/);
   if (rm) return recordApi.update(Number(rm[1]), body as never) as unknown as T;
 
-  const cm = base.match(/^\/categories\/(\d+)$/);
-  if (cm) return categoryApi.update(Number(cm[1]), body as never) as unknown as T;
-
-  const tm = base.match(/^\/transactions\/(\d+)$/);
-  if (tm) return transactionApi.update(Number(tm[1]), body as never) as unknown as T;
-
   throw new ApiError(404, `未找到接口 ${path}`);
 }
 
@@ -142,16 +127,6 @@ async function handleDelete<T>(path: string): Promise<T> {
   const rm = base.match(/^\/records\/(\d+)$/);
   if (rm) {
     await recordApi.remove(Number(rm[1]));
-    return undefined as T;
-  }
-  const cm = base.match(/^\/categories\/(\d+)$/);
-  if (cm) {
-    await categoryApi.remove(Number(cm[1]));
-    return undefined as T;
-  }
-  const tm = base.match(/^\/transactions\/(\d+)$/);
-  if (tm) {
-    await transactionApi.remove(Number(tm[1]));
     return undefined as T;
   }
   const jm = base.match(/^\/journal\/(\d{4}-\d{2}-\d{2})$/);

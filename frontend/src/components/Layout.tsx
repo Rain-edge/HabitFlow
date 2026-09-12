@@ -12,7 +12,6 @@ const NAV: { to: string; label: string; icon: IconName; end?: boolean }[] = [
   { to: "/", label: "今天", icon: "home", end: true },
   { to: "/habits", label: "习惯", icon: "sprout" },
   { to: "/calendar", label: "日历", icon: "calendar" },
-  { to: "/transactions", label: "记账", icon: "wallet" },
   { to: "/statistics", label: "统计", icon: "stats" },
   { to: "/journal", label: "日志", icon: "journal" },
   { to: "/settings", label: "设置", icon: "settings" },
@@ -85,7 +84,6 @@ export default function Layout() {
         gPressed.current = false;
         if (k === "h") navigate("/");
         else if (k === "c") navigate("/calendar");
-        else if (k === "b") navigate("/transactions");
         else if (k === "s") navigate("/statistics");
         else if (k === "j") navigate("/journal");
         else if (k === "n") navigate("/habits?new=1");
@@ -286,8 +284,7 @@ export default function Layout() {
           <Outlet />
         </main>
 
-        {/* Mobile bottom nav — native layer reserves the gesture-bar space.
-            7 items: tighter padding keeps labels on one line at 360px. */}
+        {/* Mobile bottom nav — native layer reserves the gesture-bar space */}
         <nav className="fixed inset-x-0 bottom-0 z-20 flex justify-around border-t border-line bg-card py-2 lg:hidden">
           {NAV.map((n) => (
             <NavLink
@@ -295,7 +292,7 @@ export default function Layout() {
               to={n.to}
               end={n.end}
               className={({ isActive }) =>
-                `flex flex-col items-center gap-0.5 rounded-lg px-1 py-1 text-[10px] ${
+                `flex flex-col items-center gap-0.5 rounded-lg px-2 py-1 text-[11px] ${
                   isActive ? "text-brand-600" : "text-ink-3"
                 }`
               }
@@ -343,7 +340,6 @@ export default function Layout() {
                 ["g + h", "首页"],
                 ["g + n", "新建习惯"],
                 ["g + c", "日历"],
-                ["g + b", "记账"],
                 ["g + s", "统计"],
                 ["g + j", "日志"],
                 ["?", "显示 / 隐藏本面板"],
