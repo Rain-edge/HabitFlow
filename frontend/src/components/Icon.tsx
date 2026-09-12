@@ -7,6 +7,8 @@ import {
   ClipboardList, Sparkles, Medal, Crown, Dumbbell, Gem, CalendarCheck,
   CalendarDays, PartyPopper, Droplets, BookOpen, Utensils, Flower2,
   PenLine, HeartPulse, Coffee, Music, AlarmClock, Footprints,
+  Bus, ShoppingCart, Gamepad2, Pill, GraduationCap, Wallet, Briefcase, Gift,
+  MoreHorizontal,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -22,7 +24,10 @@ export type IconName =
   | "party-popper"
   // habit icons (pickable when creating a habit)
   | "droplets" | "book-open" | "utensils" | "flower"
-  | "pen-line" | "heart-pulse" | "coffee" | "music" | "alarm-clock" | "footprints";
+  | "pen-line" | "heart-pulse" | "coffee" | "music" | "alarm-clock" | "footprints"
+  // bookkeeping category icons
+  | "bus" | "shopping-cart" | "gamepad" | "pill" | "graduation-cap"
+  | "wallet" | "briefcase" | "gift" | "more";
 
 const ICONS: Record<IconName, LucideIcon> = {
   sun: Sun, moon: Moon, bell: Bell, plus: Plus, search: Search, check: Check,
@@ -40,6 +45,9 @@ const ICONS: Record<IconName, LucideIcon> = {
   droplets: Droplets, "book-open": BookOpen,
   utensils: Utensils, flower: Flower2, "pen-line": PenLine, "heart-pulse": HeartPulse,
   coffee: Coffee, music: Music, "alarm-clock": AlarmClock, footprints: Footprints,
+  bus: Bus, "shopping-cart": ShoppingCart, gamepad: Gamepad2, pill: Pill,
+  "graduation-cap": GraduationCap, wallet: Wallet, briefcase: Briefcase,
+  gift: Gift, more: MoreHorizontal,
 };
 
 /** Set of every registered icon name — used to distinguish habit icons from legacy emoji. */

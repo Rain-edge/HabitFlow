@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, downloadExport, importLocalData } from "../api/client";
 import ConfirmDialog from "../components/ConfirmDialog";
+import Icon from "../components/Icon";
 import { toast } from "../components/Layout";
 import { useAuth } from "../state/auth";
 
@@ -17,7 +18,10 @@ export default function Settings() {
     try {
       const text = await f.text();
       const result = await importLocalData(text);
-      toast(`导入完成：习惯 ${result.habits} · 记录 ${result.records} · 日志 ${result.journals}${result.skipped ? ` · 跳过 ${result.skipped}` : ""}`, "success");
+      toast(
+        `导入完成：习惯 ${result.habits} · 记录 ${result.records} · 日志 ${result.journals} · 账单 ${result.transactions}${result.skipped ? ` · 跳过 ${result.skipped}` : ""}`,
+        "success",
+      );
     } catch (e) {
       toast((e as Error).message, "error");
     } finally {
@@ -114,19 +118,21 @@ export default function Settings() {
           所有数据保存在本机浏览器中（IndexedDB）。换设备或卸载应用前，建议先导出备份；导入 JSON 可从备份恢复，已存在的条目会跳过，不会覆盖现有数据。
         </p>
         <div className="flex flex-wrap gap-2">
-          <button className="btn-ghost" onClick={() => downloadExport("json")}>
+          <button className="btn btn-md btn-secondary" onClick={() => downloadExport("json")}>
+            <Icon name="download" className="h-4 w-4" />
             导出 JSON
           </button>
-          <button className="btn-ghost" onClick={() => downloadExport("csv")}>
+          <button className="btn btn-md btn-secondary" onClick={() => downloadExport("csv")}>
+            <Icon name="download" className="h-4 w-4" />
             导出 CSV
           </button>
-          <button className="btn-ghost" onClick={() => fileRef.current?.click()}>
+          <button className="btn btn-md btn-secondary" onClick={() => fileRef.current?.click()}>
+            <Icon name="upload" className="h-4 w-4" />
             导入 JSON
           </button>
-          <button
-            className="btn-ghost text-danger-500 hover:bg-danger-500/10 hover:text-danger-600"
-            onClick={() => setConfirmClear(true)}
-          >
+        </div>
+        <div className="border-t border-line pt-3">
+          <button className="btn btn-md btn-danger" onClick={() => setConfirmClear(true)}>
             清除全部数据
           </button>
         </div>
@@ -158,6 +164,8 @@ export default function Settings() {
                 await localDB.clear("notification_settings");
                 await localDB.clear("achievements");
                 await localDB.clear("inbox");
+                await localDB.clear("transactions");
+                await localDB.clear("categories");
                 localStorage.removeItem("hf-profile");
                 window.location.reload();
               } catch {

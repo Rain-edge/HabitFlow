@@ -1,10 +1,20 @@
 // Local persistent storage layer (IndexedDB) — replaces the FastAPI backend.
-// Tables: habits, records, journal, notification_settings, achievements, inbox.
+// Tables: habits, records, journal, notification_settings, achievements, inbox,
+//         transactions (bookkeeping), categories (bookkeeping categories).
 
 const DB_NAME = "habitflow";
-const DB_VERSION = 1;
+// v2: added transactions + categories stores (existing DBs upgrade in place).
+const DB_VERSION = 2;
 
-export type StoreName = "habits" | "records" | "journal" | "notification_settings" | "achievements" | "inbox";
+export type StoreName =
+  | "habits"
+  | "records"
+  | "journal"
+  | "notification_settings"
+  | "achievements"
+  | "inbox"
+  | "transactions"
+  | "categories";
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -36,6 +46,15 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains("inbox")) {
         const s = db.createObjectStore("inbox", { keyPath: "id", autoIncrement: true });
         s.createIndex("is_read", "is_read");
+      }
+      if (!db.objectStoreNames.contains("transactions")) {
+        const s = db.createObjectStore("transactions", { keyPath: "id", autoIncrement: true });
+        s.createIndex("tx_date", "tx_date");
+        s.createIndex("category_id", "category_id");
+      }
+      if (!db.objectStoreNames.contains("categories")) {
+        const s = db.createObjectStore("categories", { keyPath: "id", autoIncrement: true });
+        s.createIndex("type", "type");
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -197,4 +216,32 @@ export interface StoredInboxItem {
   kind: string;
   is_read: boolean;
   created_at: string;
+}
+
+// ============ Bookkeeping (transactions + categories) ============
+
+export type TxType = "expense" | "income";
+
+/** Bookkeeping entry. amount is stored in cents (integer) to avoid float drift. */
+export interface StoredTransaction {
+  id: number;
+  type: TxType;
+  amount: number; // cents
+  category_id: number;
+  note: string | null;
+  tx_date: string; // YYYY-MM-DD
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface StoredCategory {
+  id: number;
+  name: string;
+  type: TxType;
+  icon: string; // lucide icon name, rendered via HabitIcon/Icon system
+  color: string;
+  sort: number;
+  is_custom: boolean;
+  deleted_at: string | null;
 }
