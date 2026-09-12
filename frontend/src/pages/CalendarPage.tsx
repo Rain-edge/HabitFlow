@@ -75,6 +75,11 @@ export default function CalendarPage() {
     if (m > 12) { m = 1; y += 1; }
     setYear(y);
     setMonth(m);
+    // Keep the selected day inside the viewed month so the record list follows;
+    // today if the target month contains it, the 1st otherwise.
+    setSelected(
+      y === now.getFullYear() && m === now.getMonth() + 1 ? today : `${y}-${String(m).padStart(2, "0")}-01`
+    );
   };
 
   const grid = monthGrid(year, month);
