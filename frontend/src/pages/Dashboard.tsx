@@ -101,7 +101,7 @@ export default function Dashboard() {
 
   /** One-tap checkin for boolean habits. */
   const quickCheckin = async (item: TodayItem) => {
-    if (item.done_today) return; // open edit dialog instead
+    if (item.done_today || item.skipped_today) return; // open edit dialog instead
     setSavingId(item.habit_id);
     try {
       await api.post("/records", {
@@ -111,6 +111,35 @@ export default function Dashboard() {
       });
       await load();
       toast("已打卡", "success");
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  /** R-A: 跳过今天——对已有记录由数据层原位置位转换，跳过日不涨不断 streak。 */
+  const skipToday = async (item: TodayItem) => {
+    setSavingId(item.habit_id);
+    try {
+      await api.post("/records", { habit_id: item.habit_id, record_date: todayISO(), is_skipped: true });
+      await load();
+      toast("已跳过，连续天数不受影响", "success");
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  /** R-A: 取消跳过 = 删除跳过记录，该日期回到可重新打卡状态。 */
+  const cancelSkip = async (item: TodayItem) => {
+    if (!item.record) return;
+    setSavingId(item.habit_id);
+    try {
+      await api.delete(`/records/${item.record.id}`);
+      await load();
+      toast("已取消跳过", "success");
     } catch (e) {
       toast((e as Error).message, "error");
     } finally {
@@ -236,12 +265,16 @@ export default function Dashboard() {
     });
   };
 
-  const menuItemsFor = (habit: Habit): CardMenuItem[] => {
+  const menuItemsFor = (item: TodayItem, habit: Habit): CardMenuItem[] => {
     const yRec = yesterdayRecords.find((r) => r.habit_id === habit.id);
     const canBackfill = habit.allow_backfill && scheduledOn(habit, yesterdayISO) && !yRec?.is_completed && !yRec?.is_skipped;
+    const skipAction: CardMenuItem = item.skipped_today
+      ? { key: "unskip", label: "取消跳过", icon: "restore", onSelect: () => void cancelSkip(item) }
+      : { key: "skip", label: "跳过今天", icon: "shield-check", onSelect: () => void skipToday(item) };
     return [
       { key: "detail", label: "查看详情", icon: "clipboard", onSelect: () => navigate(`/habits/${habit.id}`) },
       { key: "edit", label: "编辑习惯", icon: "pencil", onSelect: () => setEditing(habit) },
+      skipAction,
       {
         key: "backfill",
         label: "补签到昨天",
@@ -354,7 +387,12 @@ export default function Dashboard() {
                 <button
                   className={item.done_today ? "check-circle-on animate-check-pop" : "check-circle-off"}
                   style={item.done_today ? { backgroundColor: habit.color } : undefined}
-                  onClick={() => {
+                  onClick={(e) => {
+                    if (item.skipped_today) {
+                      const habit2 = habits.find((h) => h.id === item.habit_id);
+                      if (habit2) setMenu({ habit: habit2, item, x: e.clientX, y: e.clientY });
+                      return;
+                    }
                     if (item.record_type === "boolean" && !item.done_today) void quickCheckin(item);
                     else openRecord(item);
                   }}
@@ -362,17 +400,21 @@ export default function Dashboard() {
                   aria-label={
                     savingId === item.habit_id
                       ? "保存中"
-                      : item.done_today
-                        ? "修改记录"
-                        : item.record_type === "boolean"
-                          ? "一键完成"
-                          : "完成打卡"
+                      : item.skipped_today
+                        ? "已跳过，打开菜单"
+                        : item.done_today
+                          ? "修改记录"
+                          : item.record_type === "boolean"
+                            ? "一键完成"
+                            : "完成打卡"
                   }
                 >
                   {savingId === item.habit_id ? (
                     "…"
                   ) : item.done_today ? (
                     <Icon name="check" className="h-5 w-5" strokeWidth={2.6} />
+                  ) : item.skipped_today ? (
+                    <Icon name="shield-check" className="h-5 w-5 opacity-60" />
                   ) : (
                     <HabitIcon icon={habit.icon} className="h-[22px] w-[22px]" />
                   )}
@@ -394,17 +436,29 @@ export default function Dashboard() {
                         补签
                       </span>
                     )}
+                    {item.skipped_today && (
+                      <button
+                        className="badge-warn cursor-pointer hover:bg-warning-500/20"
+                        onClick={() => void cancelSkip(item)}
+                        title="点击取消跳过"
+                      >
+                        <Icon name="shield-check" className="h-3 w-3" />
+                        已跳过
+                      </button>
+                    )}
                   </div>
                   <div className="caption mt-1">
                     {weekly
                       ? `本周 ${item.weekly?.this_week_done ?? 0}/${item.weekly?.target ?? 0} 次`
                       : item.done_today
                         ? recordSummary(item) || "已完成"
-                        : item.record
-                          ? `${recordSummary(item)} · 未达标`
-                          : item.scheduled_today
-                            ? "今日待完成"
-                            : "今天无计划"}
+                        : item.skipped_today
+                          ? "已跳过 · 连续天数已保护"
+                          : item.record
+                            ? `${recordSummary(item)} · 未达标`
+                            : item.scheduled_today
+                              ? "今日待完成"
+                              : "今天无计划"}
                   </div>
                   {pct != null && (
                     <div className="mt-2 max-w-56">
@@ -445,7 +499,7 @@ export default function Dashboard() {
                         存
                       </button>
                     </form>
-                  ) : numeric && !item.done_today ? (
+                  ) : numeric && !item.done_today && !item.skipped_today ? (
                     <button
                       className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-300"
                       onClick={() => void openQuickInput(item)}
@@ -527,7 +581,7 @@ export default function Dashboard() {
       )}
 
       {menu && (
-        <CardMenu x={menu.x} y={menu.y} items={menuItemsFor(menu.habit)} onClose={() => setMenu(null)} />
+        <CardMenu x={menu.x} y={menu.y} items={menuItemsFor(menu.item, menu.habit)} onClose={() => setMenu(null)} />
       )}
     </div>
   );
