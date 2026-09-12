@@ -6,7 +6,7 @@ import type { HeatmapDay } from "../local/stats";
 
 const LEVELS = [
   "bg-line-2/70", // no plan
-  "bg-danger-500/30", // scheduled, 0% done
+  "bg-danger-500/15", // scheduled, 0% done — kept for warning semantics, softened visually
   "bg-brand-500/25",
   "bg-brand-500/60",
   "bg-brand-500",
@@ -57,7 +57,9 @@ export default function Heatmap({ days }: { days: HeatmapDay[] }) {
   return (
     <div>
       <div className="overflow-x-auto pb-1" ref={scrollRef}>
-        <div className="w-max">
+        {/* pr reserves room for the rightmost month label, which absolute
+            positioning would otherwise clip outside the scroll width */}
+        <div className="w-max pr-6">
           {/* month labels */}
           <div className="relative mb-1 h-4">
             {monthLabels.map(({ col, label }) => (
