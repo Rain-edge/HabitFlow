@@ -271,6 +271,7 @@ function emptyRecord(habitId: number): HabitRecord {
     value_text: null,
     value_time: null,
     is_completed: false,
+    is_skipped: false,
     is_backfilled: false,
     note: null,
     created_at: "",

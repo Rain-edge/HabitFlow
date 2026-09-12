@@ -44,8 +44,8 @@ export interface HabitRecord {
   value_text: string | null;
   value_time: string | null;
   is_completed: boolean;
-  /** 跳过标记；类型可选（pages 既有字面量未含此字段），records 查询出口运行时归一化为 boolean，旧存储行按 false 处理 */
-  is_skipped?: boolean;
+  /** 跳过标记（跳过=不打卡但保护连续天数）；records 查询出口归一化为 boolean，旧存储行按 false 处理 */
+  is_skipped: boolean;
   is_backfilled: boolean;
   note: string | null;
   created_at: string;
