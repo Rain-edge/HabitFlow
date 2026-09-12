@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "../api/client";
 import HabitIcon from "../components/HabitIcon";
 import Icon from "../components/Icon";
@@ -42,7 +42,15 @@ export default function HabitDetail() {
 
   const trend = stats.values
     .filter((v) => v.value_number != null)
-    .map((v) => ({ date: shortCN(v.date), value: v.value_number, completed: v.is_completed }));
+    .map((v) => ({ date: shortCN(v.date), value: v.value_number as number, completed: v.is_completed }));
+
+  // Y 轴聚焦数据范围（不从 0 起）；目标值纳入 domain 保证虚线始终可见
+  const target = habit.target_value;
+  const trendValues = trend.map((t) => t.value);
+  const yMin = Math.min(...trendValues, ...(target != null ? [target] : []));
+  const yMax = Math.max(...trendValues, ...(target != null ? [target] : []));
+  const yPad = yMax - yMin > 0 ? (yMax - yMin) * 0.15 : Math.max(Math.abs(yMax) * 0.1, 1);
+  const yDomain: [number, number] = [yMin - yPad, yMax + yPad];
 
   return (
     <div className="space-y-6">
@@ -175,12 +183,31 @@ export default function HabitDetail() {
                   axisLine={{ stroke: "currentColor", strokeOpacity: 0.15 }}
                   tickLine={false}
                 />
-                <YAxis tick={{ fontSize: 10, fill: "currentColor" }} axisLine={false} tickLine={false} />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "currentColor" }}
+                  axisLine={false}
+                  tickLine={false}
+                  domain={yDomain}
+                  tickFormatter={(v: number) => `${Math.round(v)}`}
+                />
                 <Tooltip
                   formatter={(v) => [`${v} ${habit.unit || ""}`, "数值"]}
                   contentStyle={{ borderRadius: 12, border: "1px solid rgb(var(--line))", background: "rgb(var(--card))", fontSize: 12 }}
                   labelStyle={{ color: "rgb(var(--ink-2))" }}
                 />
+                {target != null && (
+                  <ReferenceLine
+                    y={target}
+                    stroke="rgb(var(--ink-3))"
+                    strokeDasharray="4 4"
+                    label={{
+                      value: `目标 ${target}${habit.unit ? ` ${habit.unit}` : ""}`,
+                      position: "insideTopRight",
+                      fontSize: 10,
+                      fill: "rgb(var(--ink-3))",
+                    }}
+                  />
+                )}
                 <Area type="monotone" dataKey="value" stroke={habit.color} fill="url(#vgrad)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
