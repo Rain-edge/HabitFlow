@@ -160,6 +160,8 @@ export interface StoredRecord {
   value_text: string | null;
   value_time: string | null;
   is_completed: boolean;
+  /** True = 跳过（不打卡但保护连续天数）。可选：旧记录无此字段，一律视为 false。 */
+  is_skipped?: boolean;
   is_backfilled: boolean;
   note: string | null;
   created_at: string;

@@ -83,7 +83,7 @@ export function scheduledDates(
   const out: string[] = [];
   let d = new Date(start);
   while (d <= cap) {
-    if (scheduleType === "daily" || ((d.getDay() + 6) % 7) in allowed) {
+    if (scheduleType === "daily" || allowed.has((d.getDay() + 6) % 7)) {
       out.push(toISO(d));
     }
     d.setDate(d.getDate() + 1);
@@ -91,10 +91,12 @@ export function scheduledDates(
   return out;
 }
 
-/** Current + longest streak over an ordered list of scheduled dates. */
-export function dailyStreaks(scheduled: string[], completed: Set<string>, today: string): [number, number] {
+/** Current + longest streak over an ordered list of scheduled dates.
+ *  `skipped` days are "bridges": they neither break a run nor reset it, and
+ *  they count toward the streak length (完成-跳过-完成 = 连续 3 天). */
+export function dailyStreaks(scheduled: string[], completed: Set<string>, today: string, skipped: Set<string> = new Set()): [number, number] {
   if (scheduled.length === 0) return [0, 0];
-  const status = scheduled.map((d) => completed.has(d));
+  const status = scheduled.map((d) => completed.has(d) || skipped.has(d));
 
   let longest = 0;
   let run = 0;

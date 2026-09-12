@@ -37,7 +37,15 @@ async function handleGet<T>(path: string): Promise<T> {
   }
   if (base === "/records") {
     const onDate = query.get("on_date");
-    return recordApi.list({ on_date: onDate || undefined }) as unknown as T;
+    const habitId = query.get("habit_id");
+    const limit = query.get("limit");
+    const habitIdNum = habitId && Number.isInteger(Number(habitId)) && Number(habitId) > 0 ? Number(habitId) : undefined;
+    const limitNum = limit && Number.isInteger(Number(limit)) && Number(limit) > 0 ? Number(limit) : undefined;
+    return recordApi.list({
+      on_date: onDate || undefined,
+      habit_id: habitIdNum,
+      limit: limitNum,
+    }) as unknown as T;
   }
   if (base === "/notifications/settings") return notificationApi.getSettings() as unknown as T;
   if (base === "/notifications/pending") return notificationApi.pending() as unknown as T;

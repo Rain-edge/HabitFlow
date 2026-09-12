@@ -41,12 +41,35 @@ export async function completedDatesFor(habitId: number): Promise<Set<string>> {
   return out;
 }
 
+/** Dates on which the habit is skipped (跳过保护，不计完成）。 */
+export async function skippedDatesFor(habitId: number): Promise<Set<string>> {
+  const records = await localDB.recordsForHabit(habitId);
+  const out = new Set<string>();
+  for (const r of records) {
+    if (r.is_skipped) out.add(r.record_date);
+  }
+  return out;
+}
+
 export async function allCompletedDatesMap(habitIds: number[]): Promise<Map<number, Set<string>>> {
   const records = await localDB.getAll<StoredRecord>("records");
   const out = new Map<number, Set<string>>();
   for (const h of habitIds) out.set(h, new Set());
   for (const r of records) {
     if (r.deleted_at != null || !r.is_completed) continue;
+    const s = out.get(r.habit_id);
+    if (s) s.add(r.record_date);
+  }
+  return out;
+}
+
+/** Habit id -> skipped dates, mirroring allCompletedDatesMap. */
+export async function allSkippedDatesMap(habitIds: number[]): Promise<Map<number, Set<string>>> {
+  const records = await localDB.getAll<StoredRecord>("records");
+  const out = new Map<number, Set<string>>();
+  for (const h of habitIds) out.set(h, new Set());
+  for (const r of records) {
+    if (r.deleted_at != null || !r.is_skipped) continue;
     const s = out.get(r.habit_id);
     if (s) s.add(r.record_date);
   }
@@ -87,15 +110,18 @@ export interface HabitStats {
     value_time: string | null;
     is_completed: boolean;
     is_backfilled: boolean;
+    is_skipped: boolean;
     note: string | null;
   }[];
 }
 
-export function computeHabitStats(habit: StoredHabit, completed: Set<string>, today: string): Omit<HabitStats, "values"> {
+export function computeHabitStats(habit: StoredHabit, completed: Set<string>, today: string, skipped: Set<string> = new Set()): Omit<HabitStats, "values"> {
   const weeklyTarget = habit.weekly_target ?? 1;
   if (habit.schedule_type === "daily" || habit.schedule_type === "weekly_days") {
-    const scheduled = scheduledDates(habit.start_date, today, habit.schedule_type, habit.weekly_days || [], habit.end_date);
-    const [current, longest] = dailyStreaks(scheduled, completed, today);
+    const scheduledAll = scheduledDates(habit.start_date, today, habit.schedule_type, habit.weekly_days || [], habit.end_date);
+    // 跳过日从分母剔除，但保留在 streak 计算中作为桥接
+    const scheduled = scheduledAll.filter((d) => !skipped.has(d));
+    const [current, longest] = dailyStreaks(scheduledAll, completed, today, skipped);
     const expectedTotal = scheduled.length;
     const streakUnit: "day" = "day";
 
@@ -193,7 +219,8 @@ function addDaysISO(iso: string, days: number): string {
 
 export async function getHabitStats(habit: StoredHabit, today = todayISO()): Promise<HabitStats> {
   const completed = await completedDatesFor(habit.id);
-  const stats = computeHabitStats(habit, completed, today);
+  const skipped = await skippedDatesFor(habit.id);
+  const stats = computeHabitStats(habit, completed, today, skipped);
   const [total, normal, backfilled] = await recordCounts(habit.id);
   const records = (await localDB.recordsForHabit(habit.id)).sort((a, b) => a.record_date.localeCompare(b.record_date));
   return {
@@ -210,6 +237,7 @@ export async function getHabitStats(habit: StoredHabit, today = todayISO()): Pro
       value_time: r.value_time,
       is_completed: r.is_completed,
       is_backfilled: r.is_backfilled,
+      is_skipped: !!r.is_skipped,
       note: r.note,
     })),
   };
@@ -228,6 +256,7 @@ export interface TodayItem {
   schedule_type: string;
   scheduled_today: boolean;
   done_today: boolean;
+  skipped_today: boolean;
   current_streak: number;
   streak_unit: "day" | "week";
   weekly: { target: number; weeks_total: number; weeks_met: number; this_week_done: number } | null;
@@ -238,6 +267,7 @@ export interface TodayItem {
     value_text: string | null;
     value_time: string | null;
     is_backfilled: boolean;
+    is_skipped: boolean;
     note: string | null;
   } | null;
 }
@@ -262,7 +292,7 @@ function isScheduledOn(habit: StoredHabit, d: string): boolean {
   if (d < habit.start_date || (habit.end_date && d > habit.end_date)) return false;
   if (habit.schedule_type === "daily") return true;
   if (habit.schedule_type === "weekly_days") {
-    return (toDate(d).getDay() + 6) % 7 in (habit.weekly_days || []);
+    return (habit.weekly_days || []).includes((toDate(d).getDay() + 6) % 7);
   }
   return false;
 }
@@ -274,6 +304,7 @@ export async function todayDashboard(today = todayISO()): Promise<TodayDashboard
   ]);
   const habits = allHabits.filter((h) => !h.deleted_at && h.is_active);
   const completedMap = await allCompletedDatesMap(habits.map((h) => h.id));
+  const skippedMap = await allSkippedDatesMap(habits.map((h) => h.id));
   const recordMap = new Map<number, StoredRecord>();
   for (const r of recordsToday) recordMap.set(r.habit_id, r);
 
@@ -283,6 +314,8 @@ export async function todayDashboard(today = todayISO()): Promise<TodayDashboard
 
   for (const habit of habits) {
     const completed = completedMap.get(habit.id) || new Set<string>();
+    const skipped = skippedMap.get(habit.id) || new Set<string>();
+    const todaySkipped = skipped.has(today);
     const todayDone = completed.has(today);
     const rec = recordMap.get(habit.id);
 
@@ -299,26 +332,29 @@ export async function todayDashboard(today = todayISO()): Promise<TodayDashboard
         schedule_type: habit.schedule_type,
         scheduled_today: false,
         done_today: todayDone,
+        skipped_today: todaySkipped,
         current_streak: stats.weekly?.this_week_done ?? 0,
         streak_unit: "week",
         weekly: stats.weekly,
         show_on_homepage: habit.show_on_homepage,
         record: rec
-          ? { id: rec.id, value_number: rec.value_number, value_text: rec.value_text, value_time: rec.value_time, is_backfilled: rec.is_backfilled, note: rec.note }
+          ? { id: rec.id, value_number: rec.value_number, value_text: rec.value_text, value_time: rec.value_time, is_backfilled: rec.is_backfilled, is_skipped: !!rec.is_skipped, note: rec.note }
           : null,
       });
       continue;
     }
 
     const scheduled = isScheduledOn(habit, today);
-    if (scheduled && habit.counts_for_daily) {
+    if (scheduled && habit.counts_for_daily && !todaySkipped) {
+      // 跳过日不计入完成率分母，也不算「待完成」
       scheduledCount += 1;
       if (todayDone) doneCount += 1;
     }
     const [current] = dailyStreaks(
       scheduledDates(habit.start_date, today, habit.schedule_type, habit.weekly_days || [], habit.end_date),
       completed,
-      today
+      today,
+      skipped
     );
     items.push({
       habit_id: habit.id,
@@ -331,12 +367,13 @@ export async function todayDashboard(today = todayISO()): Promise<TodayDashboard
       schedule_type: habit.schedule_type,
       scheduled_today: scheduled,
       done_today: todayDone,
+      skipped_today: todaySkipped,
       current_streak: current,
       streak_unit: "day",
       weekly: null,
       show_on_homepage: habit.show_on_homepage,
       record: rec
-        ? { id: rec.id, value_number: rec.value_number, value_text: rec.value_text, value_time: rec.value_time, is_backfilled: rec.is_backfilled, note: rec.note }
+        ? { id: rec.id, value_number: rec.value_number, value_text: rec.value_text, value_time: rec.value_time, is_backfilled: rec.is_backfilled, is_skipped: !!rec.is_skipped, note: rec.note }
         : null,
     });
   }
@@ -404,6 +441,7 @@ const RANGE_DAYS: Record<string, number> = { today: 1, week: 7, month: 30, "30d"
 export async function overview(range: string, today = todayISO()): Promise<Overview> {
   const habits = (await localDB.getAll<StoredHabit>("habits")).sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
   const completedMap = await allCompletedDatesMap(habits.map((h) => h.id));
+  const skippedMap = await allSkippedDatesMap(habits.map((h) => h.id));
 
   let start: string;
   if (range === "all") {
@@ -421,7 +459,8 @@ export async function overview(range: string, today = todayISO()): Promise<Overv
 
   for (const habit of habits) {
     const completed = completedMap.get(habit.id) || new Set<string>();
-    const stats = computeHabitStats(habit, completed, today);
+    const skipped = skippedMap.get(habit.id) || new Set<string>();
+    const stats = computeHabitStats(habit, completed, today, skipped);
     if (habit.schedule_type === "weekly_count") {
       if (stats.weekly) {
         weeklyTotal += stats.weekly.weeks_total;
@@ -429,7 +468,7 @@ export async function overview(range: string, today = todayISO()): Promise<Overv
       }
     } else {
       const p = periodStats(
-        scheduledDates(habit.start_date, today, habit.schedule_type, habit.weekly_days || [], habit.end_date),
+        scheduledDates(habit.start_date, today, habit.schedule_type, habit.weekly_days || [], habit.end_date).filter((d) => !skipped.has(d)),
         completed,
         start,
         today
@@ -489,13 +528,14 @@ export async function overview(range: string, today = todayISO()): Promise<Overv
 export async function trend(days: number, today = todayISO()): Promise<{ series: { date: string; expected: number; completed: number; rate: number | null }[] }> {
   const habits = (await localDB.getAll<StoredHabit>("habits")).filter((h) => !h.deleted_at && h.schedule_type !== "weekly_count");
   const completedMap = await allCompletedDatesMap(habits.map((h) => h.id));
+  const skippedMap = await allSkippedDatesMap(habits.map((h) => h.id));
   const start = addDaysISO(today, -(days - 1));
 
   const daily = (d: string) => {
     let expected = 0;
     let done = 0;
     for (const habit of habits) {
-      if (habit.counts_for_daily && isScheduledOn(habit, d)) {
+      if (habit.counts_for_daily && isScheduledOn(habit, d) && !skippedMap.get(habit.id)?.has(d)) {
         expected += 1;
         if ((completedMap.get(habit.id) || new Set()).has(d)) done += 1;
       }
@@ -540,6 +580,7 @@ export async function trend(days: number, today = todayISO()): Promise<{ series:
 export async function calendar(year: number, month: number, today = todayISO()): Promise<{ year: number; month: number; days: { date: string; status: string; done: number; expected: number }[] }> {
   const habits = (await localDB.getAll<StoredHabit>("habits")).filter((h) => !h.deleted_at && h.schedule_type !== "weekly_count");
   const completedMap = await allCompletedDatesMap(habits.map((h) => h.id));
+  const skippedMap = await allSkippedDatesMap(habits.map((h) => h.id));
   const daysInMonth = new Date(year, month, 0).getDate();
   const days: { date: string; status: string; done: number; expected: number }[] = [];
   for (let day = 1; day <= daysInMonth; day++) {
@@ -547,7 +588,8 @@ export async function calendar(year: number, month: number, today = todayISO()):
     let expected = 0;
     let done = 0;
     for (const habit of habits) {
-      if (habit.counts_for_daily && isScheduledOn(habit, d)) {
+      if (habit.counts_for_daily && isScheduledOn(habit, d) && !skippedMap.get(habit.id)?.has(d)) {
+        // 跳过日视同 empty：不进分母，全跳过的日子 status 自然落回 "empty"
         expected += 1;
         if ((completedMap.get(habit.id) || new Set()).has(d)) done += 1;
       }
@@ -666,7 +708,8 @@ export async function evaluateAchievements(): Promise<string[]> {
 
   for (const habit of habits) {
     const completed = await completedDatesFor(habit.id);
-    const stats = computeHabitStats(habit, completed, today);
+    const skipped = await skippedDatesFor(habit.id);
+    const stats = computeHabitStats(habit, completed, today, skipped);
     const [total] = await recordCounts(habit.id);
 
     const candidates: { code: string; habitId: number }[] = [];
@@ -717,6 +760,7 @@ export async function yearHeatmap(days = 364, today = todayISO()): Promise<Heatm
   const allHabits = await localDB.getAll<StoredHabit>("habits");
   const habits = allHabits.filter((h) => !h.deleted_at && h.is_active && h.counts_for_daily);
   const completedMap = await allCompletedDatesMap(habits.map((h) => h.id));
+  const skippedMap = await allSkippedDatesMap(habits.map((h) => h.id));
   const base = toDate(today);
   const out: HeatmapDay[] = [];
   for (let i = days; i >= 0; i--) {
@@ -724,7 +768,7 @@ export async function yearHeatmap(days = 364, today = todayISO()): Promise<Heatm
     let expected = 0;
     let done = 0;
     for (const habit of habits) {
-      if (!isScheduledOn(habit, d)) continue;
+      if (!isScheduledOn(habit, d) || skippedMap.get(habit.id)?.has(d)) continue;
       expected += 1;
       if (completedMap.get(habit.id)?.has(d)) done += 1;
     }

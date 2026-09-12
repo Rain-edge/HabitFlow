@@ -14,7 +14,7 @@ export class ApiError extends Error {
   }
 }
 
-function notFound(detail = "未找到") {
+function notFound(detail = "未找到"): never {
   throw new ApiError(404, detail);
 }
 
@@ -82,48 +82,113 @@ export interface RecordInput {
   value_text?: string | null;
   value_time?: string | null;
   is_completed?: boolean;
+  /** true = 标记跳过（不打卡但保护连续天数）；生成 is_completed=false 的无数值记录 */
+  is_skipped?: boolean;
   is_backfilled?: boolean;
   note?: string | null;
 }
 
 export const recordApi = {
-  async list(params: { on_date?: string }): Promise<StoredRecord[]> {
-    if (params.on_date) return localDB.recordsOnDate(params.on_date);
-    const all = await localDB.getAll<StoredRecord>("records");
-    return all.filter((r) => r.deleted_at == null);
+  async list(params: { on_date?: string; habit_id?: number; limit?: number } = {}): Promise<StoredRecord[]> {
+    let rows: StoredRecord[];
+    if (params.on_date) {
+      rows = await localDB.recordsOnDate(params.on_date);
+    } else {
+      rows = (await localDB.getAll<StoredRecord>("records")).filter((r) => r.deleted_at == null);
+    }
+    if (params.habit_id != null) {
+      rows = rows.filter((r) => r.habit_id === params.habit_id);
+    }
+    if (params.limit != null) {
+      // 「最近 N 条」按日期倒序（habit_id 单独使用时保持原有顺序，向后兼容）
+      rows = [...rows]
+        .sort((a, b) => b.record_date.localeCompare(a.record_date) || b.id - a.id)
+        .slice(0, params.limit);
+    }
+    // 统一归一化：旧记录无 is_skipped 字段 → false，视图层拿到稳定 boolean
+    return rows.map((r) => ({ ...r, is_skipped: !!r.is_skipped }));
   },
   async get(id: number): Promise<StoredRecord> {
     const r = await localDB.get<StoredRecord>("records", id);
     if (!r || r.deleted_at != null) notFound("记录不存在");
-    return r as StoredRecord;
+    return { ...r, is_skipped: !!r.is_skipped };
   },
   async create(input: RecordInput): Promise<StoredRecord> {
     const habit = await habitById(input.habit_id);
+    if (input.is_skipped && habit.schedule_type === "weekly_count") {
+      throw new ApiError(400, "每周目标习惯没有「跳过」概念");
+    }
     const existing = (await localDB.recordsForHabit(input.habit_id)).filter(
       (r) => r.record_date === input.record_date
     );
+    const now = new Date().toISOString();
+    const isBackfilled = input.is_backfilled ?? input.record_date !== todayISO();
+
     if (existing.length > 0) {
+      const prev = existing[0];
+      if (input.is_skipped) {
+        // 对已有记录执行跳过：原位置位转换，保证结果 is_completed=false 且 skipped 生效
+        const converted: StoredRecord = {
+          ...prev,
+          value_number: null,
+          value_text: null,
+          value_time: null,
+          is_completed: false,
+          is_skipped: true,
+          note: input.note ?? prev.note,
+          updated_at: now,
+        };
+        await localDB.put("records", converted);
+        void reevaluateAchievements();
+        return converted;
+      }
+      if (prev.is_skipped) {
+        // 正常打卡落在跳过占位记录上：原位替换为真实记录（免先删后建）
+        const replaced: StoredRecord = {
+          ...prev,
+          value_number: input.value_number ?? null,
+          value_text: input.value_text ?? null,
+          value_time: input.value_time ?? null,
+          is_completed:
+            input.is_completed ??
+            isRecordCompleted(habit.record_type, {
+              target_value: habit.target_value,
+              value_number: input.value_number ?? null,
+              value_text: input.value_text ?? null,
+              value_time: input.value_time ?? null,
+            }),
+          is_skipped: false,
+          is_backfilled: isBackfilled,
+          note: input.note ?? prev.note,
+          updated_at: now,
+        };
+        await localDB.put("records", replaced);
+        void reevaluateAchievements();
+        return replaced;
+      }
       throw new ApiError(409, "这一天已经记录过，请修改或删除原记录");
     }
+
     const id = await localDB.nextId("records");
-    const isCompleted =
-      input.is_completed ??
-      isRecordCompleted(habit.record_type, {
-        target_value: habit.target_value,
-        value_number: input.value_number ?? null,
-        value_text: input.value_text ?? null,
-        value_time: input.value_time ?? null,
-      });
-    const now = new Date().toISOString();
+    const isCompleted = input.is_skipped
+      ? false
+      : (input.is_completed ??
+        isRecordCompleted(habit.record_type, {
+          target_value: habit.target_value,
+          value_number: input.value_number ?? null,
+          value_text: input.value_text ?? null,
+          value_time: input.value_time ?? null,
+        }));
     const record: StoredRecord = {
       id,
       habit_id: input.habit_id,
       record_date: input.record_date,
-      value_number: input.value_number ?? null,
-      value_text: input.value_text ?? null,
-      value_time: input.value_time ?? null,
+      value_number: input.is_skipped ? null : (input.value_number ?? null),
+      value_text: input.is_skipped ? null : (input.value_text ?? null),
+      value_time: input.is_skipped ? null : (input.value_time ?? null),
       is_completed: isCompleted,
-      is_backfilled: input.is_backfilled ?? input.record_date !== todayISO(),
+      is_skipped: !!input.is_skipped,
+      is_backfilled: isBackfilled,
       note: input.note ?? null,
       created_at: now,
       updated_at: now,
@@ -137,14 +202,33 @@ export const recordApi = {
     const record = await recordApi.get(id);
     const habit = await habitById(record.habit_id);
     const merged = { ...record, ...patch, id };
-    merged.is_completed =
-      patch.is_completed ??
-      isRecordCompleted(habit.record_type, {
-        target_value: habit.target_value,
-        value_number: merged.value_number,
-        value_text: merged.value_text,
-        value_time: merged.value_time,
-      });
+    // 跳过语义：
+    //  - 显式置为跳过 → 强制满足「is_completed=false 且无数值」不变量
+    //  - 录入真实数值/完成状态（或显式 is_skipped:false）→ 视为真实记录，清除跳过
+    //  - 仅改备注等 → 保持原跳过状态不变
+    if (patch.is_skipped === true) {
+      merged.value_number = null;
+      merged.value_text = null;
+      merged.value_time = null;
+      merged.is_completed = false;
+      merged.is_skipped = true;
+    } else {
+      merged.is_completed =
+        patch.is_completed ??
+        isRecordCompleted(habit.record_type, {
+          target_value: habit.target_value,
+          value_number: merged.value_number,
+          value_text: merged.value_text,
+          value_time: merged.value_time,
+        });
+      const recordsValues =
+        patch.value_number != null ||
+        patch.value_text != null ||
+        patch.value_time != null ||
+        patch.is_completed !== undefined;
+      if (patch.is_skipped !== undefined) merged.is_skipped = patch.is_skipped;
+      else if (recordsValues) merged.is_skipped = false;
+    }
     merged.updated_at = new Date().toISOString();
     await localDB.put("records", merged);
     void reevaluateAchievements();
@@ -223,9 +307,11 @@ export const notificationApi = {
       (h) => !h.deleted_at && h.is_active && h.reminder_enabled && h.reminder_time
     );
     const today = todayISO();
-    const done = new Set((await localDB.recordsOnDate(today)).filter((r) => r.is_completed).map((r) => r.habit_id));
+    const todayRecords = await localDB.recordsOnDate(today);
+    const done = new Set(todayRecords.filter((r) => r.is_completed).map((r) => r.habit_id));
+    const skippedToday = new Set(todayRecords.filter((r) => r.is_skipped).map((r) => r.habit_id));
     const pending = habits
-      .filter((h) => !done.has(h.id))
+      .filter((h) => !done.has(h.id) && !skippedToday.has(h.id))
       .map((h) => ({
         habit_id: h.id,
         name: h.name,
@@ -340,7 +426,7 @@ const HABIT_KEYS: (keyof StoredHabit)[] = [
 ];
 const RECORD_KEYS: (keyof StoredRecord)[] = [
   "id", "habit_id", "record_date", "value_number", "value_text", "value_time",
-  "is_completed", "is_backfilled", "note", "created_at", "updated_at", "deleted_at",
+  "is_completed", "is_skipped", "is_backfilled", "note", "created_at", "updated_at", "deleted_at",
 ];
 const JOURNAL_KEYS: (keyof StoredJournal)[] = [
   "journal_date", "mood", "energy", "overall", "stress", "text", "updated_at",
@@ -409,6 +495,7 @@ export async function importData(raw: string): Promise<ImportResult> {
     }
     const record = sanitize<StoredRecord>(row, RECORD_KEYS, "record") as StoredRecord;
     record.id = id;
+    record.is_skipped = !!record.is_skipped; // 旧备份无此字段 → false
     if (record.habit_id == null || !record.record_date) {
       skipped += 1;
       continue;
@@ -486,23 +573,26 @@ export async function generateLocalNotifications(): Promise<void> {
         const habits = (await localDB.getAll<StoredHabit>("habits")).filter(
           (h) => !h.deleted_at && h.is_active && h.show_on_homepage && h.schedule_type !== "weekly_count"
         );
-        const done = new Set(
-          (await localDB.recordsOnDate(today)).filter((r) => r.deleted_at == null && r.is_completed).map((r) => r.habit_id)
-        );
-        const pending = habits.filter((h) => !done.has(h.id));
-        const id = await nextInboxId();
-        await localDB.put<StoredInboxItem>("inbox", {
-          id,
-          title: "每日小结 📋",
-          body:
-            pending.length === 0
-              ? `今天全部完成 🎉 共 ${habits.length} 个习惯。`
-              : `今天完成了 ${habits.length - pending.length}/${habits.length} 个习惯${pending.length ? `，还有 ${pending.length} 个待完成` : ""}。`,
-          kind: "summary",
-          is_read: false,
-          created_at: new Date().toISOString(),
-        });
-        localStorage.setItem(SUMMARY_SENT_KEY, today);
+        const todayRecords = await localDB.recordsOnDate(today);
+        const done = new Set(todayRecords.filter((r) => r.deleted_at == null && r.is_completed).map((r) => r.habit_id));
+        const skippedToday = new Set(todayRecords.filter((r) => r.deleted_at == null && r.is_skipped).map((r) => r.habit_id));
+        const active = habits.filter((h) => !skippedToday.has(h.id));
+        const pending = active.filter((h) => !done.has(h.id));
+        if (active.length > 0) {
+          const id = await nextInboxId();
+          await localDB.put<StoredInboxItem>("inbox", {
+            id,
+            title: "每日小结 📋",
+            body:
+              pending.length === 0
+                ? `今天全部完成 🎉 共 ${active.length} 个习惯。`
+                : `今天完成了 ${active.length - pending.length}/${active.length} 个习惯${pending.length ? `，还有 ${pending.length} 个待完成` : ""}。`,
+            kind: "summary",
+            is_read: false,
+            created_at: new Date().toISOString(),
+          });
+          localStorage.setItem(SUMMARY_SENT_KEY, today);
+        }
       }
     }
   } catch {

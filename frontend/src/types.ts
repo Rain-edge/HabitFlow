@@ -44,6 +44,8 @@ export interface HabitRecord {
   value_text: string | null;
   value_time: string | null;
   is_completed: boolean;
+  /** 跳过标记；类型可选（pages 既有字面量未含此字段），records 查询出口运行时归一化为 boolean，旧存储行按 false 处理 */
+  is_skipped?: boolean;
   is_backfilled: boolean;
   note: string | null;
   created_at: string;
@@ -61,6 +63,7 @@ export interface TodayItem {
   schedule_type: ScheduleType;
   scheduled_today: boolean;
   done_today: boolean;
+  skipped_today: boolean;
   current_streak: number;
   streak_unit: "day" | "week";
   weekly: { target: number; weeks_total: number; weeks_met: number; this_week_done: number } | null;
@@ -71,6 +74,7 @@ export interface TodayItem {
     value_text: string | null;
     value_time: string | null;
     is_backfilled: boolean;
+    is_skipped: boolean;
     note: string | null;
   } | null;
 }
@@ -126,6 +130,7 @@ export interface HabitStats {
     value_time: string | null;
     is_completed: boolean;
     is_backfilled: boolean;
+    is_skipped: boolean;
     note: string | null;
   }[];
 }
