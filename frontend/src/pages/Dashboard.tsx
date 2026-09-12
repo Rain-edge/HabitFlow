@@ -1,15 +1,27 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
+import CardMenu, { type CardMenuItem } from "../components/CardMenu";
+import HabitForm from "../components/HabitForm";
 import HabitIcon from "../components/HabitIcon";
 import Icon from "../components/Icon";
 import Motivation from "../components/Motivation";
-import RecordDialog from "../components/RecordDialog";
+import RecordDialog, { type ExistingRecord } from "../components/RecordDialog";
 import { toast } from "../components/Layout";
 import { EmptyState, PageLoading, ProgressBar, SectionTitle, StatCard } from "../components/ui";
 import type { Overview } from "../local/stats";
 import type { Habit, HabitRecord, TodayDashboard, TodayItem } from "../types";
-import { formatCN, todayISO, weekdayCN } from "../utils/date";
+import { addDays, formatCN, parseISO, todayISO, weekdayCN } from "../utils/date";
+
+/** 与数据层 isScheduledOn 同口径的单日排程判定（weekly_count 不落单日）。 */
+function scheduledOn(habit: Habit, d: string): boolean {
+  if (d < habit.start_date || (habit.end_date && d > habit.end_date)) return false;
+  if (habit.schedule_type === "daily") return true;
+  if (habit.schedule_type === "weekly_days") {
+    return (habit.weekly_days || []).includes((parseISO(d).getDay() + 6) % 7);
+  }
+  return false;
+}
 
 function CompletionRing({ rate, done, total }: { rate: number; done: number; total: number }) {
   const r = 44;
@@ -55,22 +67,32 @@ function recordSummary(item: TodayItem): string {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [data, setData] = useState<TodayDashboard | null>(null);
   const [habits, setHabits] = useState<Habit[]>([]);
   const [week, setWeek] = useState<Overview | null>(null);
-  const [checkin, setCheckin] = useState<TodayItem | null>(null);
+  const [checkin, setCheckin] = useState<{ habit: Habit; date: string; existing: ExistingRecord | null } | null>(null);
+  const [editing, setEditing] = useState<Habit | null>(null);
+  const [menu, setMenu] = useState<{ habit: Habit; item: TodayItem; x: number; y: number } | null>(null);
+  const [yesterdayRecords, setYesterdayRecords] = useState<HabitRecord[]>([]);
   const [quickInput, setQuickInput] = useState<{ id: number; value: string } | null>(null);
   const [savingId, setSavingId] = useState<number | null>(null);
+  const [pressingId, setPressingId] = useState<number | null>(null);
+  const pressTimer = useRef<number | null>(null);
+  const pressStart = useRef<{ x: number; y: number } | null>(null);
 
   const load = useCallback(async () => {
-    const [dash, habitList, weekData] = await Promise.all([
+    const yesterday = addDays(todayISO(), -1);
+    const [dash, habitList, weekData, yRecords] = await Promise.all([
       api.get<TodayDashboard>("/statistics/today"),
       api.get<Habit[]>("/habits"),
       api.get<Overview>("/statistics/overview?range=week"),
+      api.get<HabitRecord[]>(`/records?on_date=${yesterday}`),
     ]);
     setData(dash);
     setHabits(habitList);
     setWeek(weekData);
+    setYesterdayRecords(yRecords);
   }, []);
 
   useEffect(() => {
@@ -150,8 +172,99 @@ export default function Dashboard() {
     .filter((i) => i.show_on_homepage)
     .sort((a, b) => Number(a.done_today) - Number(b.done_today));
   const dateISO = todayISO();
+  const yesterdayISO = addDays(dateISO, -1);
   const bestStreak = visible.reduce((m, i) => Math.max(m, i.current_streak), 0);
   const todoCount = visible.filter((i) => i.scheduled_today && !i.done_today).length;
+
+  const clearPress = () => {
+    if (pressTimer.current != null) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+    setPressingId(null);
+  };
+
+  /** R-F: 长按 500ms / 桌面右键唤出卡片快捷菜单；卡内控件与滚动不触发。 */
+  const cardPressProps = (item: TodayItem) => ({
+    onPointerDown: (e: React.PointerEvent) => {
+      if ((e.target as HTMLElement).closest("button, a, input")) return;
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      clearPress();
+      setPressingId(item.habit_id);
+      pressStart.current = { x: e.clientX, y: e.clientY };
+      const px = e.clientX;
+      const py = e.clientY;
+      pressTimer.current = window.setTimeout(() => {
+        pressTimer.current = null;
+        setPressingId(null);
+        const habit = habits.find((h) => h.id === item.habit_id);
+        if (habit) setMenu({ habit, item, x: px, y: py });
+      }, 500);
+    },
+    onPointerMove: (e: React.PointerEvent) => {
+      const start = pressStart.current;
+      if (pressTimer.current != null && start && Math.abs(e.clientX - start.x) + Math.abs(e.clientY - start.y) > 12) {
+        clearPress();
+      }
+    },
+    onPointerUp: clearPress,
+    onPointerCancel: clearPress,
+    onContextMenu: (e: React.MouseEvent) => {
+      if ((e.target as HTMLElement).closest("button, a, input")) return;
+      e.preventDefault();
+      const habit = habits.find((h) => h.id === item.habit_id);
+      if (habit) setMenu({ habit, item, x: e.clientX, y: e.clientY });
+    },
+  });
+
+  const openRecord = (item: TodayItem) => {
+    const habit = habits.find((h) => h.id === item.habit_id);
+    if (!habit) return;
+    setCheckin({
+      habit,
+      date: dateISO,
+      existing: item.record
+        ? {
+            id: item.record.id,
+            value_number: item.record.value_number,
+            value_text: item.record.value_text,
+            value_time: item.record.value_time,
+            note: item.record.note,
+            is_backfilled: item.record.is_backfilled,
+          }
+        : null,
+    });
+  };
+
+  const menuItemsFor = (habit: Habit): CardMenuItem[] => {
+    const yRec = yesterdayRecords.find((r) => r.habit_id === habit.id);
+    const canBackfill = habit.allow_backfill && scheduledOn(habit, yesterdayISO) && !yRec?.is_completed && !yRec?.is_skipped;
+    return [
+      { key: "detail", label: "查看详情", icon: "clipboard", onSelect: () => navigate(`/habits/${habit.id}`) },
+      { key: "edit", label: "编辑习惯", icon: "pencil", onSelect: () => setEditing(habit) },
+      {
+        key: "backfill",
+        label: "补签到昨天",
+        icon: "wrench",
+        disabled: !canBackfill,
+        onSelect: () =>
+          setCheckin({
+            habit,
+            date: yesterdayISO,
+            existing: yRec
+              ? {
+                  id: yRec.id,
+                  value_number: yRec.value_number,
+                  value_text: yRec.value_text,
+                  value_time: yRec.value_time,
+                  note: yRec.note,
+                  is_backfilled: yRec.is_backfilled,
+                }
+              : null,
+          }),
+      },
+    ];
+  };
 
   return (
     <div className="space-y-6">
@@ -233,14 +346,17 @@ export default function Dashboard() {
             return (
               <div
                 key={item.habit_id}
-                className="card flex items-center gap-3.5 p-4"
+                {...cardPressProps(item)}
+                className={`card flex select-none items-center gap-3.5 p-4 transition-transform duration-150 ease-soft ${
+                  pressingId === item.habit_id ? "scale-[0.985] opacity-90" : ""
+                }`}
               >
                 <button
                   className={item.done_today ? "check-circle-on animate-check-pop" : "check-circle-off"}
                   style={item.done_today ? { backgroundColor: habit.color } : undefined}
                   onClick={() => {
                     if (item.record_type === "boolean" && !item.done_today) void quickCheckin(item);
-                    else setCheckin(item);
+                    else openRecord(item);
                   }}
                   disabled={savingId === item.habit_id}
                   aria-label={
@@ -339,7 +455,7 @@ export default function Dashboard() {
                   ) : (
                     <button
                       className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-300"
-                      onClick={() => setCheckin(item)}
+                      onClick={() => openRecord(item)}
                     >
                       {item.done_today ? "修改" : "记录"}
                     </button>
@@ -383,26 +499,35 @@ export default function Dashboard() {
 
       {checkin && (
         <RecordDialog
-          habit={habits.find((h) => h.id === checkin.habit_id)!}
-          recordDate={dateISO}
-          existing={
-            checkin.record
-              ? {
-                  id: checkin.record.id,
-                  value_number: checkin.record.value_number,
-                  value_text: checkin.record.value_text,
-                  value_time: checkin.record.value_time,
-                  note: checkin.record.note,
-                  is_backfilled: checkin.record.is_backfilled,
-                }
-              : null
-          }
+          habit={checkin.habit}
+          recordDate={checkin.date}
+          existing={checkin.existing}
           onClose={() => setCheckin(null)}
           onSaved={() => {
             load();
             toast("已保存", "success");
           }}
         />
+      )}
+
+      {editing && (
+        <HabitForm
+          habit={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => {
+            setEditing(null);
+            load();
+            toast("已保存", "success");
+          }}
+          onDeleted={() => {
+            setEditing(null);
+            load();
+          }}
+        />
+      )}
+
+      {menu && (
+        <CardMenu x={menu.x} y={menu.y} items={menuItemsFor(menu.habit)} onClose={() => setMenu(null)} />
       )}
     </div>
   );
