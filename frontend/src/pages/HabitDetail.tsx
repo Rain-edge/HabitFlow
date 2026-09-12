@@ -49,7 +49,7 @@ export default function HabitDetail() {
         <Link to="/habits" className="icon-btn -ml-1.5 shrink-0" aria-label="返回习惯列表">
           <Icon name="left" className="h-5 w-5" />
         </Link>
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: `${habit.color}22` }}>
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: `${habit.color}2E` }}>
           <HabitIcon icon={habit.icon} className="h-[22px] w-[22px]" />
         </span>
         <div className="min-w-0 flex-1">

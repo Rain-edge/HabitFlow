@@ -2,7 +2,9 @@
 // Tables: habits, records, journal, notification_settings, achievements, inbox.
 
 const DB_NAME = "habitflow";
-const DB_VERSION = 1;
+// Keep 2: a removed bookkeeping feature once shipped DB v2; downgrading the
+// version would make already-upgraded local databases fail to open.
+const DB_VERSION = 2;
 
 export type StoreName = "habits" | "records" | "journal" | "notification_settings" | "achievements" | "inbox";
 

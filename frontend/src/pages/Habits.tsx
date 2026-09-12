@@ -162,7 +162,7 @@ export default function Habits() {
               <Link to={`/habits/${h.id}`} className="flex min-w-0 items-center gap-3">
                 <span
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
-                  style={{ backgroundColor: `${h.color}22` }}
+                  style={{ backgroundColor: `${h.color}2E` }}
                 >
                   <HabitIcon icon={h.icon} className="h-5 w-5" />
                 </span>
