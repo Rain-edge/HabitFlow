@@ -24,6 +24,22 @@ function scheduledOn(habit: Habit, d: string): boolean {
   return false;
 }
 
+/** localStorage 安全读写（隐私模式/禁存储不致白屏）。 */
+function storageGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function storageSet(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // 存储不可用时静默：庆祝至多多触发一次
+  }
+}
+
 function CompletionRing({ rate, done, total }: { rate: number; done: number; total: number }) {
   const r = 44;
   const c = 2 * Math.PI * r;
@@ -85,6 +101,7 @@ export default function Dashboard() {
   const pressStart = useRef<{ x: number; y: number } | null>(null);
   const cardEls = useRef(new Map<number, HTMLDivElement>());
   const prevTops = useRef<Map<number, number> | null>(null);
+  const flipTimers = useRef(new Map<number, number>());
 
   const load = useCallback(async () => {
     // R-E: FLIP——先记当前卡片位置，数据刷新后由 effect 做位移过渡
@@ -110,12 +127,18 @@ export default function Dashboard() {
     load().catch((e) => toast((e as Error).message, "error"));
   }, [load]);
 
+  useEffect(() => {
+    // 卸载时清掉未触发的长按定时器
+    return () => {
+      if (pressTimer.current != null) clearTimeout(pressTimer.current);
+    };
+  }, []);
+
   /** R-B: 当日全部完成触发一次全屏庆祝；localStorage 记已庆祝日期，同日刷新不重复。 */
   useEffect(() => {
     if (!data) return;
-    const key = `hf-celebrated-${data.date}`;
-    if (data.scheduled_count > 0 && data.done_count >= data.scheduled_count && localStorage.getItem(key) !== data.date) {
-      localStorage.setItem(key, data.date);
+    if (data.scheduled_count > 0 && data.done_count >= data.scheduled_count && storageGet("hf-celebrated") !== data.date) {
+      storageSet("hf-celebrated", data.date);
       setCelebrating(true);
     }
   }, [data]);
@@ -136,15 +159,24 @@ export default function Dashboard() {
       if (oldTop == null) return;
       const delta = oldTop - el.getBoundingClientRect().top;
       if (Math.abs(delta) < 1) return;
+      const timers = flipTimers.current;
+      if (timers.has(id)) {
+        clearTimeout(timers.get(id));
+        timers.delete(id);
+      }
       el.style.transition = "none";
       el.style.transform = `translateY(${delta}px)`;
       requestAnimationFrame(() => {
         el.style.transition = "transform 320ms cubic-bezier(0.25, 0.6, 0.35, 1)";
         el.style.transform = "";
-        window.setTimeout(() => {
-          el.style.transition = "";
-          el.style.transform = "";
-        }, 360);
+        timers.set(
+          id,
+          window.setTimeout(() => {
+            el.style.transition = "";
+            el.style.transform = "";
+            timers.delete(id);
+          }, 360),
+        );
       });
     });
   }, [data]);
@@ -204,8 +236,8 @@ export default function Dashboard() {
       setQuickInput(null);
       return;
     }
-    const valueNumber = raw.includes(".") ? parseFloat(raw) : parseInt(raw, 10);
-    if (Number.isNaN(valueNumber)) {
+    const valueNumber = Number(raw);
+    if (!Number.isFinite(valueNumber) || valueNumber < 0) {
       toast("请输入有效数字", "error");
       return;
     }
@@ -242,7 +274,8 @@ export default function Dashboard() {
         // 预填失败不阻塞输入
       }
     }
-    setQuickInput({ id: item.habit_id, value: prefill });
+    // 竞态守卫：若用户已切换到其他习惯的输入框，丢弃迟到的预填
+    setQuickInput((cur) => (cur && cur.id !== item.habit_id ? cur : { id: item.habit_id, value: prefill }));
   };
 
   if (!data) return <PageLoading />;
@@ -253,7 +286,7 @@ export default function Dashboard() {
   const dateISO = todayISO();
   const yesterdayISO = addDays(dateISO, -1);
   const bestStreak = visible.reduce((m, i) => Math.max(m, i.current_streak), 0);
-  const todoCount = visible.filter((i) => i.scheduled_today && !i.done_today).length;
+  const todoCount = visible.filter((i) => i.scheduled_today && !i.done_today && !i.skipped_today).length;
   // R-C: 昨日遗漏——排程中且允许补签、昨天既未完成也未跳过的习惯
   const yDoneOrSkipped = new Set(yesterdayRecords.filter((r) => r.is_completed || r.is_skipped).map((r) => r.habit_id));
   const yesterdayPending = habits
@@ -349,13 +382,17 @@ export default function Dashboard() {
   const menuItemsFor = (item: TodayItem, habit: Habit): CardMenuItem[] => {
     const yRec = yesterdayRecords.find((r) => r.habit_id === habit.id);
     const canBackfill = habit.allow_backfill && scheduledOn(habit, yesterdayISO) && !yRec?.is_completed && !yRec?.is_skipped;
-    const skipAction: CardMenuItem = item.skipped_today
-      ? { key: "unskip", label: "取消跳过", icon: "restore", onSelect: () => void cancelSkip(item) }
-      : { key: "skip", label: "跳过今天", icon: "shield-check", onSelect: () => void skipToday(item) };
+    // weekly_count 无跳过概念（数据层 400）；已完成的当天先删记录才可跳过，防误清
+    const skipAction: CardMenuItem | null =
+      item.schedule_type === "weekly_count"
+        ? null
+        : item.skipped_today
+          ? { key: "unskip", label: "取消跳过", icon: "restore", onSelect: () => void cancelSkip(item) }
+          : { key: "skip", label: "跳过今天", icon: "shield-check", disabled: item.done_today, onSelect: () => void skipToday(item) };
     return [
       { key: "detail", label: "查看详情", icon: "clipboard", onSelect: () => navigate(`/habits/${habit.id}`) },
       { key: "edit", label: "编辑习惯", icon: "pencil", onSelect: () => setEditing(habit) },
-      skipAction,
+      ...(skipAction ? [skipAction] : []),
       {
         key: "backfill",
         label: "补签到昨天",
@@ -509,8 +546,7 @@ export default function Dashboard() {
                   style={item.done_today ? { backgroundColor: habit.color } : undefined}
                   onClick={(e) => {
                     if (item.skipped_today) {
-                      const habit2 = habits.find((h) => h.id === item.habit_id);
-                      if (habit2) setMenu({ habit: habit2, item, x: e.clientX, y: e.clientY });
+                      setMenu({ habit, item, x: e.clientX, y: e.clientY });
                       return;
                     }
                     if (item.record_type === "boolean" && !item.done_today) void quickCheckin(item);
@@ -559,6 +595,7 @@ export default function Dashboard() {
                     {item.skipped_today && (
                       <button
                         className="badge-warn cursor-pointer hover:bg-warning-500/20"
+                        disabled={savingId === item.habit_id}
                         onClick={() => void cancelSkip(item)}
                         title="点击取消跳过"
                       >

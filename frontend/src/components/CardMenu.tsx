@@ -26,13 +26,16 @@ export default function CardMenu({
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  // 用 ref 持有最新 onClose，监听器只订阅一次
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     const onDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+      if (ref.current && !ref.current.contains(e.target as Node)) onCloseRef.current();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
     };
     window.addEventListener("pointerdown", onDown, true);
     window.addEventListener("keydown", onKey, true);
@@ -40,7 +43,7 @@ export default function CardMenu({
       window.removeEventListener("pointerdown", onDown, true);
       window.removeEventListener("keydown", onKey, true);
     };
-  }, [onClose]);
+  }, []);
 
   const menuH = items.length * ITEM_H + 12;
   const left = Math.max(8, Math.min(x, window.innerWidth - MENU_W - 8));
@@ -49,12 +52,15 @@ export default function CardMenu({
   return (
     <div
       ref={ref}
+      role="menu"
+      aria-label="卡片快捷菜单"
       className="fixed z-50 animate-zoom-in overflow-hidden rounded-lg border border-line bg-card py-1.5 shadow-lg"
       style={{ left, top, width: MENU_W }}
     >
       {items.map((it) => (
         <button
           key={it.key}
+          role="menuitem"
           disabled={it.disabled}
           className={`flex w-full items-center gap-2.5 px-3.5 py-2 text-left text-sm transition-colors hover:bg-line-2 disabled:pointer-events-none disabled:opacity-40 ${
             it.danger ? "text-danger-600 dark:text-danger-500" : "text-ink"

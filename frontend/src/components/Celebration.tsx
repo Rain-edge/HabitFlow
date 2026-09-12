@@ -71,10 +71,12 @@ export default function Celebration() {
     <div className="pointer-events-none fixed inset-0 z-50">
       <canvas ref={canvasRef} className="h-full w-full" />
       {showText && (
-        <div className="animate-pop absolute left-1/2 top-24 -translate-x-1/2 rounded-card bg-card/95 px-6 py-4 text-center shadow-lg">
-          <Icon name="party-popper" className="mx-auto h-7 w-7 text-flame-500" />
-          <p className="mt-2 text-base font-bold text-ink">今天全部完成！</p>
-          <p className="caption mt-1">每一个打卡都是给自己的礼物</p>
+        <div className="absolute left-1/2 top-24 -translate-x-1/2">
+          <div className="animate-pop rounded-card bg-card/95 px-6 py-4 text-center shadow-lg">
+            <Icon name="party-popper" className="mx-auto h-7 w-7 text-flame-500" />
+            <p className="mt-2 text-base font-bold text-ink">今天全部完成！</p>
+            <p className="caption mt-1">每一个打卡都是给自己的礼物</p>
+          </div>
         </div>
       )}
     </div>
