@@ -80,6 +80,7 @@ export default function Dashboard() {
   const [savingId, setSavingId] = useState<number | null>(null);
   const [pressingId, setPressingId] = useState<number | null>(null);
   const [celebrating, setCelebrating] = useState(false);
+  const [reminderOpen, setReminderOpen] = useState(false);
   const pressTimer = useRef<number | null>(null);
   const pressStart = useRef<{ x: number; y: number } | null>(null);
   const cardEls = useRef(new Map<number, HTMLDivElement>());
@@ -253,6 +254,18 @@ export default function Dashboard() {
   const yesterdayISO = addDays(dateISO, -1);
   const bestStreak = visible.reduce((m, i) => Math.max(m, i.current_streak), 0);
   const todoCount = visible.filter((i) => i.scheduled_today && !i.done_today).length;
+  // R-C: 昨日遗漏——排程中且允许补签、昨天既未完成也未跳过的习惯
+  const yDoneOrSkipped = new Set(yesterdayRecords.filter((r) => r.is_completed || r.is_skipped).map((r) => r.habit_id));
+  const yesterdayPending = habits
+    .filter(
+      (h) =>
+        h.show_on_homepage &&
+        h.is_active &&
+        h.allow_backfill &&
+        scheduledOn(h, yesterdayISO) &&
+        !yDoneOrSkipped.has(h.id),
+    )
+    .sort((a, b) => a.id - b.id);
 
   const clearPress = () => {
     if (pressTimer.current != null) {
@@ -314,6 +327,25 @@ export default function Dashboard() {
     });
   };
 
+  /** R-C/R-F: 打开昨天的补签弹窗（昨天已有未达标记录则编辑之，否则新建——数据层自动带 is_backfilled）。 */
+  const openBackfill = (habit: Habit) => {
+    const rec = yesterdayRecords.find((x) => x.habit_id === habit.id);
+    setCheckin({
+      habit,
+      date: yesterdayISO,
+      existing: rec
+        ? {
+            id: rec.id,
+            value_number: rec.value_number,
+            value_text: rec.value_text,
+            value_time: rec.value_time,
+            note: rec.note,
+            is_backfilled: rec.is_backfilled,
+          }
+        : null,
+    });
+  };
+
   const menuItemsFor = (item: TodayItem, habit: Habit): CardMenuItem[] => {
     const yRec = yesterdayRecords.find((r) => r.habit_id === habit.id);
     const canBackfill = habit.allow_backfill && scheduledOn(habit, yesterdayISO) && !yRec?.is_completed && !yRec?.is_skipped;
@@ -329,27 +361,62 @@ export default function Dashboard() {
         label: "补签到昨天",
         icon: "wrench",
         disabled: !canBackfill,
-        onSelect: () =>
-          setCheckin({
-            habit,
-            date: yesterdayISO,
-            existing: yRec
-              ? {
-                  id: yRec.id,
-                  value_number: yRec.value_number,
-                  value_text: yRec.value_text,
-                  value_time: yRec.value_time,
-                  note: yRec.note,
-                  is_backfilled: yRec.is_backfilled,
-                }
-              : null,
-          }),
+        onSelect: () => openBackfill(habit),
       },
     ];
   };
 
   return (
     <div className="space-y-6">
+      {/* R-C: 昨日遗漏提醒条 */}
+      {yesterdayPending.length > 0 && (
+        <section className="animate-fade-up rounded-card border border-warning-500/25 bg-warning-500/10 p-4">
+          <button
+            className="flex w-full items-center justify-between gap-3 text-left"
+            onClick={() => setReminderOpen((v) => !v)}
+            aria-expanded={reminderOpen}
+          >
+            <span className="flex items-center gap-2 text-sm font-semibold text-warning-600 dark:text-warning-500">
+              <Icon name="alert" className="h-4 w-4 shrink-0" />
+              昨天还有 {yesterdayPending.length} 项未完成
+            </span>
+            <span className="caption flex items-center gap-1">
+              {reminderOpen ? "收起" : "展开补签"}
+              <Icon
+                name="next"
+                className={`h-3.5 w-3.5 transition-transform duration-150 ease-soft ${reminderOpen ? "rotate-90" : ""}`}
+              />
+            </span>
+          </button>
+          {reminderOpen && (
+            <div className="mt-3 space-y-2">
+              {yesterdayPending.map((habit) => {
+                const rec = yesterdayRecords.find((x) => x.habit_id === habit.id);
+                return (
+                  <button
+                    key={habit.id}
+                    className="card flex w-full items-center gap-3 p-3 text-left transition-transform duration-150 ease-soft active:scale-[0.99]"
+                    onClick={() => openBackfill(habit)}
+                  >
+                    <span
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base"
+                      style={{ backgroundColor: `${habit.color}22` }}
+                    >
+                      <HabitIcon icon={habit.icon} className="h-[18px] w-[18px]" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-ink">{habit.name}</span>
+                      <span className="caption">{rec ? "已记录，未达标" : "昨天没有记录"}</span>
+                    </span>
+                    <span className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-300">补签</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
       {/* Hero: today at a glance */}
       <section className="hero-card card-pad animate-fade-up">
         <div className="flex items-center justify-between gap-4">
