@@ -159,7 +159,7 @@ export default function RecordDialog({ habit, recordDate, existing, onClose, onS
           <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="附言：今天状态如何？（可选）" />
         </div>
 
-        <div className="flex justify-between pt-2">
+        <div className="flex items-center gap-2 pt-2">
           {isEdit ? (
             confirmingDelete ? (
               <div className="flex items-center gap-2">
@@ -176,17 +176,13 @@ export default function RecordDialog({ habit, recordDate, existing, onClose, onS
                 删除记录
               </button>
             )
-          ) : (
-            <span />
-          )}
-          <div className="flex gap-2">
-            <button className="btn-ghost" onClick={onClose}>
-              取消
-            </button>
-            <button className="btn-primary" onClick={save} disabled={saving}>
-              {saving ? "保存中…" : isEdit ? "保存修改" : "完成记录"}
-            </button>
-          </div>
+          ) : null}
+          <button className="btn-ghost" onClick={onClose}>
+            取消
+          </button>
+          <button className="btn-lg btn-primary flex-1" onClick={save} disabled={saving}>
+            {saving ? "保存中…" : isEdit ? "保存修改" : "完成记录"}
+          </button>
         </div>
       </div>
     </Modal>

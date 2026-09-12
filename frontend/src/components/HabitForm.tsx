@@ -317,7 +317,7 @@ export default function HabitForm({ habit, onClose, onSaved, onDeleted }: Props)
           </label>
         </div>
 
-        <div className={`flex items-center gap-2 pt-2 ${isEdit ? "justify-between" : "justify-end"}`}>
+        <div className="flex items-center gap-2 pt-2">
           {isEdit && (
             <button
               className="btn-ghost text-danger-500 hover:bg-danger-500/10 hover:text-danger-600"
@@ -327,14 +327,12 @@ export default function HabitForm({ habit, onClose, onSaved, onDeleted }: Props)
               删除习惯
             </button>
           )}
-          <div className="flex gap-2">
-            <button className="btn-ghost" onClick={onClose}>
-              取消
-            </button>
-            <button className="btn-primary" onClick={submit} disabled={saving}>
-              {saving ? "保存中…" : isEdit ? "保存修改" : "创建习惯"}
-            </button>
-          </div>
+          <button className="btn-ghost" onClick={onClose}>
+            取消
+          </button>
+          <button className="btn-lg btn-primary flex-1" onClick={submit} disabled={saving}>
+            {saving ? "保存中…" : isEdit ? "保存修改" : "创建习惯"}
+          </button>
         </div>
       </div>
 
