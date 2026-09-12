@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { Habit, RecordType, ScheduleType } from "../types";
 import { todayISO } from "../utils/date";
@@ -41,7 +41,7 @@ export default function HabitForm({ habit, onClose, onSaved, onDeleted }: Props)
   const [description, setDescription] = useState(habit?.description ?? "");
   const [icon, setIcon] = useState(habit?.icon ?? "sprout");
   const [color, setColor] = useState(habit?.color ?? "#18A396");
-  const [category, setCategory] = useState(habit?.category ?? "general");
+  const [category, setCategory] = useState(habit?.category ?? "日常");
   const [recordType, setRecordType] = useState<RecordType>(habit?.record_type ?? "boolean");
   const [targetValue, setTargetValue] = useState(habit?.target_value?.toString() ?? "");
   const [unit, setUnit] = useState(habit?.unit ?? "");
@@ -62,6 +62,19 @@ export default function HabitForm({ habit, onClose, onSaved, onDeleted }: Props)
 
   const needTarget = recordType === "number" || recordType === "duration";
 
+  // datalist 联想选项：既有习惯的去重非空分类（拉取失败静默降级为无联想）
+  const [knownCategories, setKnownCategories] = useState<string[]>([]);
+  useEffect(() => {
+    api
+      .get<Habit[]>("/habits")
+      .then((list) =>
+        setKnownCategories(
+          [...new Set(list.filter((h) => h.category && h.category !== "general").map((h) => h.category))].sort()
+        )
+      )
+      .catch(() => {});
+  }, []);
+
   const submit = async () => {
     if (!name.trim()) {
       toast("请填写习惯名称", "error");
@@ -74,7 +87,7 @@ export default function HabitForm({ habit, onClose, onSaved, onDeleted }: Props)
         description: description || null,
         icon,
         color,
-        category: category.trim() || "general",
+        category: category.trim() || "日常",
         record_type: recordType,
         target_value: targetValue === "" ? null : Number(targetValue),
         unit: unit || null,
@@ -153,7 +166,18 @@ export default function HabitForm({ habit, onClose, onSaved, onDeleted }: Props)
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="label">分类</label>
-            <input className="input" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="健康 / 学习 / 作息" />
+            <input
+              className="input"
+              list="habit-category-options"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              placeholder="健康 / 学习 / 作息"
+            />
+            <datalist id="habit-category-options">
+              {knownCategories.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
           </div>
           <div>
             <label className="label">描述（可选）</label>
