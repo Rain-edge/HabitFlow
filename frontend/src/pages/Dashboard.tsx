@@ -363,7 +363,7 @@ export default function Dashboard() {
                   value_number: checkin.record.value_number,
                   value_text: checkin.record.value_text,
                   value_time: checkin.record.value_time,
-                  note: null,
+                  note: checkin.record.note,
                   is_backfilled: checkin.record.is_backfilled,
                 }
               : null

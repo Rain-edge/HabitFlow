@@ -71,6 +71,7 @@ export interface TodayItem {
     value_text: string | null;
     value_time: string | null;
     is_backfilled: boolean;
+    note: string | null;
   } | null;
 }
 
@@ -125,6 +126,7 @@ export interface HabitStats {
     value_time: string | null;
     is_completed: boolean;
     is_backfilled: boolean;
+    note: string | null;
   }[];
 }
 

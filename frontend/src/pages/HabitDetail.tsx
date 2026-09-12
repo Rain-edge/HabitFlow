@@ -259,6 +259,7 @@ export default function HabitDetail() {
                   {v.value_time != null && ` ${v.value_time}`}
                 </span>
               </span>
+              {v.note && <span className="mt-0.5 block truncate text-xs text-ink-3">“{v.note}”</span>}
             </button>
           ))}
         </div>
@@ -275,7 +276,7 @@ export default function HabitDetail() {
                   value_number: editingRecord.value_number,
                   value_text: editingRecord.value_text,
                   value_time: editingRecord.value_time,
-                  note: null,
+                  note: editingRecord.note,
                   is_backfilled: editingRecord.is_backfilled,
                 }
               : null

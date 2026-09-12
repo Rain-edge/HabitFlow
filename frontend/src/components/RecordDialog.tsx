@@ -155,8 +155,8 @@ export default function RecordDialog({ habit, recordDate, existing, onClose, onS
         )}
 
         <div>
-          <label className="label">备注（可选）</label>
-          <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="备注" />
+          <label className="label">打卡附言（可选）</label>
+          <input className="input" value={note} onChange={(e) => setNote(e.target.value)} placeholder="附言：今天状态如何？（可选）" />
         </div>
 
         <div className="flex justify-between pt-2">

@@ -184,7 +184,10 @@ export default function CalendarPage() {
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center">
                   <HabitIcon icon={h?.icon ?? "sprout"} className="h-5 w-5" />
                 </span>
-                <span className="min-w-0 flex-1 truncate text-sm text-ink">{h?.name ?? `习惯 ${r.habit_id}`}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm text-ink">{h?.name ?? `习惯 ${r.habit_id}`}</span>
+                  {r.note && <span className="block truncate text-xs text-ink-3">“{r.note}”</span>}
+                </span>
                 <span className="flex shrink-0 items-center gap-1 text-xs text-ink-3">
                   {r.is_backfilled && <Icon name="wrench" className="h-3 w-3 text-warning-500" />}
                   {r.is_completed ? (

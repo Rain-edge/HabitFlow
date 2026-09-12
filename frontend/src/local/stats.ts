@@ -87,6 +87,7 @@ export interface HabitStats {
     value_time: string | null;
     is_completed: boolean;
     is_backfilled: boolean;
+    note: string | null;
   }[];
 }
 
@@ -209,6 +210,7 @@ export async function getHabitStats(habit: StoredHabit, today = todayISO()): Pro
       value_time: r.value_time,
       is_completed: r.is_completed,
       is_backfilled: r.is_backfilled,
+      note: r.note,
     })),
   };
 }
@@ -236,6 +238,7 @@ export interface TodayItem {
     value_text: string | null;
     value_time: string | null;
     is_backfilled: boolean;
+    note: string | null;
   } | null;
 }
 
@@ -301,7 +304,7 @@ export async function todayDashboard(today = todayISO()): Promise<TodayDashboard
         weekly: stats.weekly,
         show_on_homepage: habit.show_on_homepage,
         record: rec
-          ? { id: rec.id, value_number: rec.value_number, value_text: rec.value_text, value_time: rec.value_time, is_backfilled: rec.is_backfilled }
+          ? { id: rec.id, value_number: rec.value_number, value_text: rec.value_text, value_time: rec.value_time, is_backfilled: rec.is_backfilled, note: rec.note }
           : null,
       });
       continue;
@@ -333,7 +336,7 @@ export async function todayDashboard(today = todayISO()): Promise<TodayDashboard
       weekly: null,
       show_on_homepage: habit.show_on_homepage,
       record: rec
-        ? { id: rec.id, value_number: rec.value_number, value_text: rec.value_text, value_time: rec.value_time, is_backfilled: rec.is_backfilled }
+        ? { id: rec.id, value_number: rec.value_number, value_text: rec.value_text, value_time: rec.value_time, is_backfilled: rec.is_backfilled, note: rec.note }
         : null,
     });
   }
